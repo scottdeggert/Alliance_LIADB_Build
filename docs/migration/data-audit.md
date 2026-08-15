@@ -27,6 +27,10 @@ stale by about 16%. Corrected:
 | Donors | 111 | **127** | pledges, signups, lines, `people` |
 | **Total** | 676 | **781** | |
 
+Imported counts after exclusions: organizations 49 (+1 platform owner),
+item_requests 116, items 395, volunteer_requests 24, volunteer_roles 54,
+item_pledges 83, volunteer_signups 38, item_pledge_lines 173, people 160.
+
 Update `Handbook.md` section 14 and `field-map.md` section 18 to these numbers.
 The section 18 validation table asserts exact counts and will fail on all six.
 
@@ -236,14 +240,21 @@ text, and demoting them buries two organizations' actual focus.
 
 | # | Question | Answer |
 |---|---|---|
-| **TE5** | Item-donor rows with no quantity array | **0** |
+| **TE5** | Item-donor rows with no quantity array | **10** |
 | **TE6** | Rows with both an item and a volunteer reference | **0** |
 | **TE7** | Rows with neither reference | **6** |
 | **TE8** | Rows with no email | **0** |
 
-TE5 at zero removes the single largest data-quality risk named in the corpus.
-Every pledge carries real quantities. No line defaults to 1. Migrated public
-counts will be correct.
+**TE5 is 10, not zero.** An earlier pass counted the literal string `[]` as a
+present array. Ten donor rows carry an empty quantity array, referencing **19
+items with no recorded quantity anywhere** — `Donated Item Quantities` is empty
+on those rows too, so nothing is recoverable from the source. Each of those 19
+pledge lines defaults to quantity 1, which understates the claimed total. This
+is the largest predicted data-quality risk in the corpus and it is real, not
+cleared. The ten donors: Michael Vanderburg, Tiffany Loeffler, Julie Love (x2),
+Josie and Don Shrieve, Cindy Biando, Rose Skolnick, Jenelle Burdick, Jamie
+Perell (7 items), Patty Anderson. Ask the program director whether any are
+recent enough to reconstruct.
 
 TE6 at zero means the prose rule the old database could not enforce was in fact
 never violated.
@@ -289,8 +300,12 @@ Full list with reasons in `exclusions.csv`. Every one is logged to
 | Item requests → deleted org | 2 | `34699d06` (Archived), `bc00a9d0` (**Active**, Roseville PAL appliances) |
 | Item requests, no org and no status | 2 | `edc1ffbc`, `fc7c70b1` (also no title) |
 | Items → deleted item request | 3 | Double Stroller, toys, Backpacks and school supplies |
+| Items whose parent request was excluded | 5 | Cascade from the four excluded item requests |
 | Volunteer roles → deleted volunteer request | 4 | 2 soccer coach roles, 2 Thrift Shop Organizer |
 | Donor rows, neither reference | 6 | Section 5 |
+
+**Net item count: 403 source, 8 excluded, 395 imported.** An earlier draft said
+400; it counted only the three direct orphans and missed the cascade.
 
 **`bc00a9d0` needs a human decision, not a rule.** It is a live Active request
 that would disappear from the public site on cutover. The organization

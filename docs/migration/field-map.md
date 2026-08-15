@@ -8,20 +8,24 @@ Read `Handbook.md` section 14 first for policy. This file is the mapping. The pe
 
 ## 1. Sources
 
-**Export A, the CMS.** Six collections, 676 rows.
+**Export A, the CMS.** Six collections, 781 rows. Confirmed 2026-08-14.
 
 | Collection | Rows | Feeds |
 |---|---|---|
-| Organizations | 48 | `organizations`, `people`, `populations` |
-| Needs Requests | 100 | `item_requests`, `people` |
-| Items | 336 | `items` |
-| Volunteer Requests | 23 | `volunteer_requests`, `people` |
+| Organizations | 49 | `organizations`, `people`, `populations` |
+| Needs Requests | 120 | `item_requests`, `people` |
+| Items | 403 | `items` |
+| Volunteer Requests | 24 | `volunteer_requests`, `people` |
 | Volunteer Roles | 58 | `volunteer_roles` |
-| Donors | 111 | `item_pledges`, `item_pledge_lines`, `volunteer_signups`, `volunteer_signup_roles`, `people` |
+| Donors | 127 | `item_pledges`, `item_pledge_lines`, `volunteer_signups`, `volunteer_signup_roles`, `people` |
 
-**Export B, contacts.** Not part of the CMS export and separately requested. Feeds `people`, `users`, `org_memberships`, and `digest_subscribers`. Carries the member records, the approval label, and the digest subscription flag. **Without it, no migrated member has an active membership and the subscriber list is lost.** See `SPRINT.md`.
+**Export B, contacts.** Not part of the CMS export and separately requested. Feeds `people`, `users`, `org_memberships`, and `digest_subscribers`. Carries the member records, the approval label, and the digest subscription flag. **Without it, no migrated member has an active membership and the subscriber list is lost.** See `SPRINT.md`. **Not received as of 2026-08-14.** A filtered slice covering one label segment (386 of roughly 2,321 contacts) has been seen; the full export has not. It lives in Customers & Leads, not CMS, and requires owner-level permissions.
 
-**Export C, media.** `media_manifest.csv` from the pre-sprint harvest, keyed on `legacy_wix_id`. 56 images across 57 active request pages. Historical pending and archived records were never publicly reachable and have no captured image; that gap is accepted.
+**Export C, media.** `media_manifest.csv` from the pre-sprint harvest, keyed on `legacy_wix_id`, confirmed to be the request UUID. 56 files at 1080x1080. Covers 42 of 43 active item requests and 12 of 12 active volunteer requests. One gap: `c95239e9-54a5-4385-9fc5-d5f4bec50ed4`. Organization logos were never harvested; all 49 are referenced in the export and none are in the manifest. Historical pending and archived records were never publicly reachable and have no captured image; that gap is accepted.
+
+**The manifest and its image files are not yet in the repository.**
+
+**Freeze the source before the production run.** The live system changed between two exports taken the same afternoon: request `83c41e41` was Active at 17:00 and Archived by 20:21. Re-pull, re-run the audit, then load.
 
 ---
 
@@ -43,7 +47,22 @@ populations
               → seed email_log (section 9)
 ```
 
-Every step is idempotent on `legacy_wix_id`. Re-running the import against a partially loaded database updates rather than duplicates. This is not optional: the migration will be run more than once.
+**How this runs.** `transform.py` at the repository root reads the six CMS exports and writes one CSV per target table into `data/load/`, plus a generated `load.sql`. Two commands:
+
+```
+python3 transform.py
+psql "$DATABASE_URL" -f load.sql
+```
+
+`transform.py` is deterministic. Every uuid is `uuid5(namespace, legacy_id)`, so re-running produces byte-identical files and a parent's id is known before its children are written. Re-run it freely.
+
+`load.sql` is a single transaction and is **not** idempotent: the unique indexes on `legacy_wix_id` and `lower(email)` reject a second load. To reload, truncate first. Any failure rolls back and nothing is written.
+
+`COPY` only inserts, so it never fires the `BEFORE UPDATE` triggers and the preserved source timestamps survive exactly as exported.
+
+**`people` has no `legacy_wix_id`.** It carries `legacy_wix_contact_id`, which the CMS export does not populate. People are keyed on `lower(email)`.
+
+**`item_pledges` and `volunteer_signups` share one source id space.** Both take `legacy_wix_id` from the Donors collection, and no donor row produces both.
 
 ---
 
@@ -51,8 +70,10 @@ Every step is idempotent on `legacy_wix_id`. Re-running the import against a par
 
 - **`legacy_wix_id`** carries the source record id on every table that receives rows. Never a foreign key.
 - **Dropped fields** are recorded in `dropped-fields.csv`, one row per source field with a reason. That file is a deliverable.
+- **Excluded records** are listed in `exclusions.csv` before the run, with a reason per row. Rows flagged `needs_human_decision` with no legacy id still import, and `transform.py` warns about each at startup.
 - **Assumptions** go in `migration-exceptions.csv`, one row per record where the import made a choice the source did not determine. Also a deliverable. This is how a defaulted quantity or a coerced status stays visible instead of disappearing into the data.
 - **No guessing into the database.** Where the source is ambiguous about a person, the row lands with `needs_review = true`. Where it is ambiguous about anything else, it goes in the exceptions file.
+- **Trim and lowercase before matching any coded value.** The source carries trailing spaces and casing variants on several constrained fields.
 
 ---
 
@@ -69,17 +90,30 @@ One human is one row. The source has the same human in up to four places with no
 
 **Matching:** `lower(email)`, exact. No fuzzy matching on names, ever. Two people named J. Martinez at the same organization are two rows until a human says otherwise at ADMIN-04.
 
+**Confirmed scale.** 316 contact records across the four CMS sources resolve to **160 distinct people**, collapsing **156 duplicate records**. 16 land with `needs_review = true`. The Donors collection alone holds 127 rows across 81 distinct emails.
+
+**Lowercase before deduplicating.** One donor row uses `PERELLMFT@GMAIL.COM` where another uses `perellmft@gmail.com`. Same human, and the all-caps row also has a null name. A case-sensitive comparison keeps both.
+
 **Name splitting.** Sources 2, 3, and 4 give one string. Migration never guesses a confident split.
 
 | Pattern | Action |
 |---|---|
-| Two tokens, no suffix or particle ambiguity | First token to `first_name`, second to `last_name` |
-| One token | Best-effort split: both columns populated, `needs_review = true`, original in `source_note`, `review_note` states no last name was present |
-| Three or more tokens | First token to `first_name`, remainder to `last_name`, `needs_review = true`, original in `source_note`, `review_note` states the name did not split confidently |
-| Contains a comma | Do not attempt to reverse it. Best-effort split, `needs_review = true`, original in `source_note`, `review_note` states the name did not split confidently |
-| Hyphenated surnames, suffixes (Jr, Sr, II, III), or particles (van, de, del) | Does not split confidently. Best-effort split, `needs_review = true`, original in `source_note`, `review_note` states why |
-| Non-personal contact value (office name, department, etc.) | Both columns populated with best effort, `needs_review = true`, original in `source_note`, `review_note` states a person's name was expected |
-| Empty or whitespace | `needs_review = true`, both names set to a stated placeholder, original in `source_note`, `review_note` states the source was empty |
+| Two tokens, no suffix | First token to `first_name`, second to `last_name`. **The only path that does not flag** |
+| One token | `last_name` set to a stated placeholder, `needs_review = true` |
+| Contains ` and `, ` & `, or ` + ` | **Two humans in one field.** Keep the first given name and the shared final surname. `Don & Patty Anderson` becomes `Don` / `Anderson`. `needs_review = true` |
+| Contains a comma | Do not attempt to reverse it. First token to `first_name`, remainder to `last_name`, `needs_review = true` |
+| Contains a particle (van, von, de, del, della, der, di, du, la, le, da, st) | The particle and everything after it are the surname. `Efren Del Rio` becomes `Efren` / `Del Rio`. `Maria von Housen` becomes `Maria` / `von Housen`. `needs_review = true` |
+| Middle tokens are all single letters, with or without a period | **The initial is dropped.** `Julie M Stark` becomes `Julie` / `Stark`. `needs_review = true` |
+| Three or more tokens, none of the above | **The middle name stays with the first name.** The final token is the surname. `Teresa Ann Cunningham` becomes `Teresa Ann` / `Cunningham`. `needs_review = true` |
+| Trailing suffix (Jr, Sr, II, III, IV, MD, PhD, Esq) | Peeled off first, then reattached to the surname after the rules above. `Ana de la Cruz Jr` becomes `Ana` / `de la Cruz Jr` |
+| Non-personal contact value (office name, department) | Both columns populated with best effort, `needs_review = true` |
+| Empty or whitespace | Both names set to a stated placeholder, `needs_review = true` |
+
+Rule order matters: connector, then comma, then particle, then initial, then middle name. Particle before initial, or `Efren Del Rio` becomes `Efren | Rio`.
+
+Trim and collapse repeated internal whitespace before counting tokens. One source name carries a double space and a trailing space.
+
+Casing is left exactly as entered. `JULIE S RODRIGUEZ` imports as `JULIE` / `RODRIGUEZ`; auto-titlecasing breaks McDonald and O'Brien.
 
 The contacts export has a known corruption pattern: `first_name` exactly matching an organization's name, from a bulk contact update that overlaid an org-linked contact and wrote the business name into the person's first_name field. Roughly 1,200 live Wix records. **Count these (TE10). Report the count. Do not auto-correct.** The count sizes a manual scrub of the contacts CSV before import; it is diagnostic, not a gate on an automated cleanup step.
 
@@ -89,9 +123,9 @@ Every split that sets `needs_review` writes the original string into `source_not
 
 **Specified handling:** synthesize `missing+{source}-{legacyId}@invalid.local`, set `needs_review = true`, write the source record reference in `source_note`, and write a plain-language reason in `review_note`. The `.invalid` TLD is reserved and can never route, so a synthesized address cannot accidentally receive mail. The reviewer merges the record into a real person or clears it.
 
-`[CAPTURE]` how many such records exist. Run the count before Monday; it determines whether the review queue is a ten-minute job or a two-hour one.
+**Confirmed: zero records in the CMS export have no email.** All 127 donor rows, all 49 organization contacts, and all 143 request contacts carry one. The synthesized-address path stays live for the contacts export, which has not been inspected.
 
-**Conflicting details on match.** Same email, different name or phone across sources. Keep the contacts-export values, since they come from structured fields. Where the contacts export has no row, keep the first-loaded value and write the conflict to `migration-exceptions.csv`. Do not overwrite silently and do not create a second row.
+**Conflicting details on match.** Same email, different name or phone across sources. Keep the contacts-export values, since they come from structured fields. Where the contacts export has no row, keep the first-loaded value and write the conflict to `migration-exceptions.csv`. Do not overwrite silently and do not create a second row. **Names are never overwritten during migration.** The live rule that a matching email updates the name in place governs public flows, not this load. Here, a difference between sources is written to `migration-exceptions.csv` and the earlier-loaded value is kept. A phone number is filled in only when the existing row has none.
 
 ---
 
@@ -112,6 +146,10 @@ Both come from Export B only. The CMS knows nothing about logins.
 
 That third row is the point of the whole rebuild appearing as a migration problem: every unmatched string is a member who was silently broken in the old system.
 
+**A preview of the failure rate exists.** A joined export produced on 2026-08-14 contained 15 contact rows whose organization did not resolve, including nine at one member org and two labeled `UNMATCHED / NO ORGANIZATION`. Expect this class of failure at volume.
+
+**One organization is misspelled in the CMS:** `Roseville Police Activities Leauge`. Exact-match logic against a correctly spelled contact field will fail. Do not correct the name during import; the slug and the match both derive from what is there.
+
 **Role:** `owner` where the person is the organization's `Primary Contact Email`, `member` otherwise (D35). The source has no role concept; this is an inference.
 
 **Status:** `active` where the contact carries the approval label, `pending` otherwise. **This label is the only record of who is approved and it exists only in Export B.**
@@ -125,19 +163,19 @@ That third row is the point of the whole rebuild appearing as a migration proble
 | Source field | Target | Notes |
 |---|---|---|
 | ID | `legacy_wix_id` | |
-| Organization Name | `name` | Unique. Collisions to exceptions |
+| Organization Name | `name` | **Confirmed unique across all 49.** Collision handling retained for future imports but does not fire here |
 | — | `slug` | Generated: lowercase, non-alphanumerics to hyphens, collapsed, trimmed. Collisions get a numeric suffix. **Permanent once assigned** |
 | Website URL | `website_url` | |
-| Mission Statement | `mission` | |
+| Mission Statement | `mission` | Populated on all 49. **The org-mission bleed described in the pre-sprint brief is not in the data** — all 49 missions are distinct and correct. It was a Wix page-lookup bug and dies with the platform. Seven contain literal line breaks, which is valid CSV but makes the file look mangled in a plain text editor |
 | Primary Population Served | `organization_populations` | Section 7 |
 | Logo | `logo_url` | Section 10 |
 | Org Address | `address_line1`, `address_line2`, `city`, `state`, `postal_code`, `address_formatted` | Section 8 |
 | Org Phone Number | `phone` | |
 | Primary Contact Name / Email / Phone Number | `primary_contact_person_id` | Resolved via section 4 |
 | Approved | `status` | `APPROVED` → `approved`, `PENDING` → `pending`. Any other value → `pending`, logged |
-| Approved Email Sent | dropped | Section 9 |
+| Approved Email Sent | dropped | Section 9. True on 47, null on 2 |
 | Owner | dropped | Documented as unused |
-| Page Link fields | dropped | Routes computed from `slug` and `id` |
+| Edit Organization / View Donors, Volunteers / Dashboard - Organizations | dropped | Wix page links. Routes computed from `slug` and `id` |
 | Created Date | `created_at` | Preserve. Do not let the default overwrite it |
 | Updated Date | `updated_at` | Preserve |
 
@@ -149,25 +187,36 @@ That third row is the point of the whole rebuild appearing as a migration proble
 
 ## 7. `populations`
 
-Seeded from `select distinct` on the source tags field across all 48 organizations. **Not from an invented taxonomy.**
+Seeded from `select distinct` on the source tags field across all 49 organizations. **Not from an invented taxonomy.**
 
 Process: extract distinct values, trim, group case-insensitively, sort alphabetically, assign `sort_order` in that order, all `is_active = true`. Add an `Other` row if one is not already present.
 
-Values that appear once, or that read as free text rather than a category, go to `organizations.populations_other` instead of becoming a population row, with the organization also assigned to `Other`. `[CAPTURE]` the distinct-value list before Monday and have the captain draw that line. It is a ten-minute review of maybe twenty values and it determines whether ADMIN-05's Other region opens with three entries or thirty.
+**24 distinct values confirmed.** Full list with counts in `data-audit.md` section 4. `Other` already exists as a source value on two organizations, so no synthetic row is needed.
+
+**Revised rule on single-occurrence values.** The original instruction demoted them to `populations_other`. Two values appear once — `Immigrants` and `Local Agencies/Nonprofits` — and both read as real categories, not free text. **Seed all 24 as-is.** No source value in this export reads as free text.
+
+**Three near-duplicate pairs are open (O9)**, and they drive the public browse filters on PB-01 and PB-03:
+- Youth in Foster Care (15) and Foster Youth (6)
+- Transitional Age Youth/Young Adults (9) and Transitional Age Youth/Aged-Out Youth (4)
+- Single Parents (11) and Single Moms (4)
+
+**Default if nobody answers: seed all 24 unmerged.** Merging later is an ADMIN-05 operation. Splitting later is not.
 
 ---
 
 ## 8. Addresses
 
-The source stores a structured address object with sub-parts and a formatted display string. Whether the export preserves the structure or flattens it to the display string is unknown until a test export is inspected.
+**Confirmed: structured, but inconsistently.** Five distinct key shapes across 48 populated rows, plus one null. Ten organizations export `formatted` only. Full breakdown in `data-audit.md` section 3. **Parse defensively. Every key is optional.**
 
-**If structured:** map sub-parts to their columns directly, keep the display string in `address_formatted`.
+**`streetAddress` is a nested object** with `number`, `name`, `apt`, and `formattedAddressLine`. **31 of 48 populated rows carry a usable street line.** Read `formattedAddressLine` first, fall back to `number` + `name`, accept null. `address_line2` comes from `apt`. Nothing currently renders either.
 
-**If flattened:** parse the formatted string. Do not attempt a general address parse. Extract `city`, `state`, and `postal_code` from the end of the string, which is reliable for US addresses in a standard format, and put the remainder in `address_line1`. Anything that does not fit the pattern goes to exceptions with `city` left null.
+**State** comes from the `subdivisions` entry whose `type` is `ADMINISTRATIVE_AREA_LEVEL_1`, falling back to the bare `subdivision` string with any `US-` prefix stripped. Do not take `subdivisions[0]` positionally; the array also carries county and city entries.
 
-**`city` is required for every approved organization.** It renders as the location on both public browse surfaces. Any approved organization with a null `city` after import is a blocking validation failure, not a warning. There are 48 organizations; if the parse leaves gaps, fill them by hand.
+**Where only `formatted` is present**, two fallbacks in order: the standard `City, ST 00000` tail, then, when the string has no digits and no comma, treat the whole trimmed value as a city. Three organizations store a bare place name that only the second rule catches. Do not attempt a general address parse.
 
-This is one of the four at-risk field types. Test it on a sample export before any full run.
+**`city` is required for every approved organization.** It renders as the location on both public browse surfaces. A null `city` on an approved organization after load is a blocking validation failure, not a warning.
+
+**11 organizations have no structured `city` key. Parsing recovers 9.** Two need a hand-entered value: one whose formatted string parses to a suite number, and Roseville Police Activities Leauge, which has no address object at all.
 
 ---
 
@@ -219,8 +268,8 @@ Not in any export. Created by the migration as a fixed step:
 | Source field | Target | Notes |
 |---|---|---|
 | ID | `legacy_wix_id` | |
-| Organization (reference) | `org_id` | Resolved through `legacy_wix_id`. An unresolvable reference is a blocking failure |
-| Request Title / Title | `title` | **Two fields, one target.** `[CAPTURE]` which is populated and whether they ever differ. Rule until known: prefer `Request Title`, fall back to `Title`, log any row where both are populated and differ |
+| Organization (reference) | `org_id` | Resolved through `legacy_wix_id`. **Two rows reference a deleted organization and two have no reference at all. All four are excluded, not failed** — see `exclusions.csv`. One of the four is Active and needs a human decision |
+| Request Title | `title` | **Resolved: this field only.** `Title` is null on all 120 rows and is dropped. Delete the fallback logic. One row has a null `Request Title`; it is an excluded draft |
 | Description | `description` | |
 | Image | `image_url` | Section 10 |
 | Need Status | `status` | `Active` → `active`, `Pending` → `pending`, `Archived` → `archived`. Nothing imports as `draft`; that status is new. **All active requests migrate as-is (D42).** No pre-migration outreach to confirm they are still live, and no cleanup pass that drops older unmet requests |
@@ -234,6 +283,8 @@ Not in any export. Created by the migration as a fixed step:
 | Page Link fields | dropped | |
 | Created Date / Updated Date | `created_at` / `updated_at` | Preserve |
 
+| — | `dropoff_location` | **No source field exists.** Null on every migrated row. Confirm at capture whether the live surface renders one |
+
 `submitted_at`, `approved_at`, `approved_by`, `archived_at`, `archived_reason`, `created_by`: not recorded in the source. **`approved_at` and `submitted_at` are left null on the one-time historical Wix migration batch only (D43, D48).** They are not carried over from source and are not derived from `Updated Date` or any other Wix field. This is not a general import default. Any later load — a second scripted import, a manual batch, cutover-week new posts — must set `approved_at` explicitly to a real, current timestamp. A fabricated historical date is dishonest, and using the historical-batch import timestamp would make every migrated request look newly approved when the send job runs. Set `archived_at` to `Updated Date` for archived requests; leave the rest null. `archived_reason` null for migrated rows, since the source does not distinguish manual from expired from fulfilled. Log the `archived_at` inference once.
 
 ### `items`
@@ -241,12 +292,12 @@ Not in any export. Created by the migration as a fixed step:
 | Source field | Target | Notes |
 |---|---|---|
 | ID | `legacy_wix_id` | |
-| Item Request (reference) | `item_request_id` | Unresolvable is a blocking failure |
+| Item Request (reference) | `item_request_id` | **Three rows reference a deleted request and five belong to excluded parents. All eight are excluded.** 403 source, 395 imported |
 | Item Name | `name` | |
 | Item Description | `description` | |
 | Item Condition | `condition` | Section 14 |
 | Product Link | `product_url` | |
-| Quantity | `quantity_requested` | Must be greater than zero. A zero or null value goes to exceptions with a defaulted 1 |
+| Quantity | `quantity_requested` | Must be greater than zero. **12 rows are null or zero**; each defaults to 1 and is logged |
 | Claimed Quantity | **not imported** | Recomputed. Section 16 |
 | Remaining Quantity | dropped | Generated column |
 | Received Quantity | `quantity_received` | Imported as-is. Not a counter |
@@ -267,6 +318,7 @@ Same mapping as item requests, including D42 (active requests migrate as-is) and
 | Details | `details` | Own column. Not merged into `description` |
 | Event Location | `event_location` | |
 | — | `deadline_date` | **Null for every migrated row.** The source has no such field; it is new per deviation one |
+| Deadline Type | `deadline_type` | Only `Ongoing` (17) and `Date Specific` (7) appear. **`Date Specific` is coerced to `ongoing`**: the schema requires a date for `date_specific` and this collection has no date field to carry. Logged. An organization can set a real date after cutover |
 | Roles (multi-reference) | not migrated | Child rows carry the parent |
 
 ### `volunteer_roles`
@@ -280,23 +332,40 @@ Same mapping as item requests, including D42 (active requests migrate as-is) and
 | Quantity | `quantity_needed` | Greater than zero, same rule as items |
 | Interested Quantity | **not imported** | Recomputed. Section 16 |
 | Received Quantity | `quantity_confirmed` | Imported as-is |
-| Claimed Quantity | dropped | Vestigial |
+| Claimed Quantity | dropped | **Confirmed vestigial: null on all 58 rows corpus-wide** |
 | Remaining Quantity | dropped | Generated |
-| Manual Sort | `sort_order` | Text to integer. Unparseable values fall back to source order, logged |
+| — | `sort_order` | **There is no `Manual Sort` column in the export.** Assign by source order within the parent, same as items |
 
 ---
 
 ## 14. Coded values
 
-Three source fields hold text values the new schema constrains. **Run `select distinct` on each before writing the mapping.** The values below are expected, not confirmed.
+All three scans are complete. **These values are confirmed, not expected.** Full counts in `data-audit.md` section 4. Trim and lowercase before matching.
 
-**Deadline Type** → `date_specific`, `until_fulfilled`, `ongoing`. Expected source values include a date-specific variant and an until-fulfilled variant. Any unmapped value defaults to `until_fulfilled` on the item side and `ongoing` on the volunteer side, logged to exceptions.
+**Deadline Type**
 
-**Item Condition** → `new`, `gently_used`, `any`. Expected source values include New and Gently Used. Null or unmapped defaults to `any`, logged.
+| Source | Rows | Target |
+|---|---|---|
+| `Until Fufilled` *(source misspelling)* | 78 | `until_fulfilled` |
+| `Ongoing` | 44 | `ongoing` |
+| `Date Specific` | 21 | `date_specific` |
+| null | 1 | `until_fulfilled` on items, `ongoing` on volunteer, logged |
 
-**Need Status** → per section 12. Any unmapped value defaults to `archived` rather than `active`, so nothing unexpected becomes public. Logged.
+**Match the misspelling exactly.** A map that spells it correctly silently defaults 78 rows.
 
-The distinct-value scan is a ten-minute job against a test export and it is the difference between a clean import and 300 exception rows.
+**Item Condition** — 12 source variants, three schema values.
+
+| Source | Target |
+|---|---|
+| `New`, `NEW`, `new`, `New ` *(trailing space)* | `new` |
+| `New or Like New`, `New or like new`, `New or like New`, `New or like-new` | `new` |
+| `Gently Used`, `Used - Functional`, `Used - Like New` | `gently_used` |
+| `New/Gently Used` | `any` |
+| null (2 rows) | `any`, logged |
+
+The `New or Like New` family is 125 rows and is the only mapping that loses information. Captain sign-off open; `new` is the standing default.
+
+**Need Status** → `Active` (43 item, 12 volunteer), `Pending` (6, 1), `Archived` (69, 11). Two item requests have a null status; both are excluded drafts. Anything unmapped defaults to `archived`, never `active`.
 
 ---
 
@@ -306,14 +375,14 @@ The Donors collection holds both branches in one table, with a rule written in p
 
 **Split rule, per row:**
 
+**Confirmed: 83 item pledges, 38 volunteer signups, 0 carrying both references, 6 carrying neither.** The prose rule the old database could not enforce was never actually violated. The six neither-rows are junk submissions listed in `exclusions.csv`; all six humans have other valid rows and the person is still created for each.
+
 | Condition | Action |
 |---|---|
 | Item Request reference present, Volunteer Request absent | `item_pledges` |
 | Volunteer Request present, Item Request absent | `volunteer_signups` |
 | Both present | **Neither.** Log to exceptions for human resolution. The database can now enforce what prose could not, and this is where the unenforced rule shows up |
 | Neither present | Log to exceptions. The person is still created |
-
-`[CAPTURE]` counts for rows three and four before Monday.
 
 ### Common fields
 
@@ -332,7 +401,9 @@ From `Item to Quantity Array`, an array of maps carrying item id, name, and quan
 
 **Where the array is empty or absent** but the Items multi-reference has entries, the source records which items without how many. Create one line per referenced item at **quantity 1** and write every one to `migration-exceptions.csv`. Do not skip the pledge; a donor who claimed something is a donor.
 
-`[CAPTURE]` how many donor rows are in this state. If it is more than a handful, the recomputed counters will understate claimed quantities and the numbers on public request pages will be visibly wrong on day one. This is the single most likely source of a bad number in the migrated data.
+**Confirmed: 10 donor rows carry an empty quantity array.** An earlier pass reported zero; it counted the literal string `[]` as a present array. Those ten rows reference **19 items with no recorded quantity anywhere** — `Donated Item Quantities` is empty on them too, so nothing is recoverable from the source. Each of the 19 lines defaults to quantity 1, which understates the claimed total on those items. This is the largest predicted data-quality risk in the corpus and it is real, not cleared.
+
+Totals: 173 pledge lines, of which 154 carry real quantities and 19 are defaulted. Two donor rows list the same itemId twice in one array; the unique constraint on `(item_pledge_id, item_id)` rejects that, so the quantities are summed into one line.
 
 `Donated Item Quantities` and `Multi Reference as String` are dropped. Both are denormalized display text and both are now computed.
 
@@ -366,7 +437,9 @@ where id not in (select volunteer_role_id from volunteer_signup_roles);
 
 `quantity_remaining` is generated and recomputes automatically.
 
-**Compare the recomputed values against the source's stored counters** and write every difference to `migration-exceptions.csv`. Do not correct toward the source; the recomputed value is authoritative. The comparison exists because a large gap means pledge lines were lost, which is a migration defect rather than a data-quality finding.
+**Compare the recomputed values against the source's stored counters** and write every difference to `migration-exceptions.csv`. Do not correct toward the source; the recomputed value is authoritative. **Measured drift in the source: 61 of 403 items and 11 of 58 volunteer roles**, in both directions. Two items had a recomputed claimed total exceeding the requested quantity, which the schema forbids; `quantity_requested` was raised to match so no pledge is discarded and remaining lands at zero. Both are logged.
+
+**Correction to the previous instruction.** This section previously said a large gap indicates a migration defect. That is wrong here. The gap is a *source* defect, it is large, and it is expected. Record every difference as evidence; do not treat the count as a failure signal. What would indicate a migration defect is the `counter_drift` view returning rows after load.
 
 ---
 
@@ -393,13 +466,15 @@ Every check runs and passes before the migration is accepted. Output is a writte
 
 | Table | Expected |
 |---|---|
-| `organizations` | 48, plus 1 platform owner |
-| `item_requests` | 100 |
-| `items` | 336 |
-| `volunteer_requests` | 23 |
-| `volunteer_roles` | 58 |
-| `item_pledges` + `volunteer_signups` | 111 minus any logged in section 15 rows three and four |
-| `people` | Unknown until run. Report it; it is the headline number for the duplicate-collapse story |
+| `organizations` | 49, plus 1 platform owner |
+| `item_requests` | 116 |
+| `items` | 395 |
+| `volunteer_requests` | 24 |
+| `volunteer_roles` | 54 |
+| `item_pledges` | 83 |
+| `volunteer_signups` | 38 |
+| `item_pledge_lines` | 173 |
+| `people` | 160 from the CMS sources alone, before the contacts export |
 
 **Referential:**
 - Every request resolves to an existing organization
@@ -416,6 +491,9 @@ Every check runs and passes before the migration is accepted. Output is a writte
 - Every organization has a unique, non-empty `slug`
 - Every source record maps to exactly one destination row, verified by `legacy_wix_id`
 - No `people` row is referenced by zero rows and also carries a synthesized email; that combination is an import artifact with no purpose
+- Every active item request and volunteer request has a non-null `image_url` (fails until the media pass runs)
+
+Executable form in `validation.sql`.
 
 **Deliverables:**
 - `redirects.csv`, old public path to new full URL
@@ -426,28 +504,33 @@ Every check runs and passes before the migration is accepted. Output is a writte
 
 ---
 
-## 19. Test before the full run
+## 19. Test before the full run — CLOSED
 
-Four field types are where fidelity breaks. Test each on a sample export before any full run:
+All four at-risk field types were resolved against the full export on 2026-08-14. See `data-audit.md` section 3. Quantity arrays parse as JSON, multi-references are JSON arrays of record ids, addresses are structured in five shapes, and image references are internal `wix:image://` references that match the harvest manifest.
 
-1. **Per-item quantity arrays.** Does the export preserve the array structure or flatten it to text?
-2. **Multi-reference fields.** Delimiter, and whether they hold ids or display names.
-3. **Structured addresses.** Structured or flattened. Section 8.
-4. **Image references.** Internal references or resolvable URLs, and whether they match the harvest manifest.
-
-A test export that answers these four questions is on the critical path and is worth more than any other pre-Monday task.
+Re-open this section only if the source is re-pulled.
 
 ---
 
 ## 20. Open captures
 
-| What is needed | Source |
-|---|---|
-| **Staff list and roles for the platform owner org** | Captain. Blocks all admin testing |
-| **Test export answering the four questions in section 19** | Site owner, pre-Monday, critical path |
-| Distinct values for Deadline Type, Item Condition, Need Status | Test export |
-| Distinct population values, and where the free-text line falls | Test export, then captain |
-| Count of donor rows with no quantity array | Test export. Highest data-quality risk |
-| Count of donor rows with both or neither request reference | Test export |
-| Count of records arriving with no email | Test export |
-| Whether Request Title and Title ever differ | Test export |
+| What is needed | Source | Status |
+|---|---|---|
+| **Contacts export** | Site owner, owner-level permissions | **Open. The only remaining blocker of this size** |
+| **Staff list and roles for the platform owner org** | Captain | Open. Blocks all admin testing |
+| City for 2 organizations | Program director | Open. Parsing recovers the other 9 |
+| Keep or repoint `bc00a9d0` | Program director | Open. One live Active request would disappear |
+| Test-data confirmation, 8 suspected rows | Program director | Open |
+| Population near-duplicate merges (O9) | Captain | Open. Default is seed all 24 |
+| `New or Like New` mapping sign-off | Captain | Open. Default is `new` |
+| Re-harvest one image, `c95239e9` | Captain | Open |
+| Harvest 49 organization logos | Captain | Open. Not in the manifest |
+| Move manifest and images into the repo | Captain | Open |
+| ~~Four at-risk field types~~ | — | **Closed 2026-08-14** |
+| ~~Distinct values, three coded fields~~ | — | **Closed. Section 14** |
+| ~~Distinct population values~~ | — | **Closed. 24 values** |
+| ~~Donor rows with no quantity array (TE5)~~ | — | **Closed. Ten, not zero** |
+| ~~Donor rows with both or neither reference~~ | — | **Closed. Zero and six** |
+| ~~Records with no email~~ | — | **Closed. Zero in the CMS** |
+| ~~Whether Request Title and Title differ~~ | — | **Closed. `Title` is null on all 120** |
+| TE10, org name in contact first_name | Contacts export | Still open |
