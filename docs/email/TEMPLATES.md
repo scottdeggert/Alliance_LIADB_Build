@@ -1,6 +1,6 @@
 # docs/email/TEMPLATES.md
 
-Twelve templates. Subject lines below are captured verbatim from the current system and are bound. Body copy is not yet captured; see section 3.
+Eleven of twelve templates are captured, subject and body. One remains: `org_member_approved`.
 
 Read `Handbook.md` section 13 first. This file is the implementation detail, not the policy.
 
@@ -53,17 +53,19 @@ This preserves what the index is actually for, which is once per recipient per e
 
 **No unsubscribe footer on these twelve.** All are transactional. The digest, which needs one, is phase two.
 
+**Item and role lists render as tables in email bodies** (`Item | Number Donated`, or a role list under its own heading), not the inline "3x Blankets, 2x Pillows" string MP-13 uses on screen. Both read the same computed data (`item_pledge_lines` / `volunteer_signup_roles`); the layout differs by context, the values never do. Ratified as D51.
+
 ---
 
-## 3. Body copy is not captured, and this is a gap
+## 3. Body copy — status
 
-Subject lines below are verbatim from the current system's documentation. **The bodies are not.** They live in the current platform's triggered-email editor, not in any code file or in the 22-page report, which means nobody on this team has seen them.
+Eleven of twelve captured: the four staff notifications, `org_approved`, `org_request_received`, `org_request_approved`, `org_new_item_donation`, `org_new_volunteer`, `donor_item_confirmation`, `donor_volunteer_confirmation`. Sourced from Tiffany's Staff, Member Organization, and Community email exports, copied verbatim, Aug 16 2026.
 
-They need capturing the same way surfaces do: open each template in the sending platform's dashboard and copy the body text exactly. That is a different place from the surface walkthrough, likely requires owner-level access, and it is not on the pre-Monday ask list yet. **Add it.**
+**`org_member_approved` is not yet captured.** See section 5 and `OPEN-ITEMS.md`.
 
-Until captured, every body below is specified by what it must contain rather than by its wording. Build against the requirements, drop in the captured copy when it arrives. Do not write finished marketing prose and let it ship as though it were the original.
+**Two small captures remain open**, both noted inline where they apply: the exact words `itemOrVolunteer` resolves to (`org_request_received`), and PB-04's on-screen confirmation copy should be checked against `donor_volunteer_confirmation`'s follow-up window once PB-04 is captured (D52).
 
-Tiffany flagged on the Aug 14 call that one of the 12 triggered emails (new-user-login approval) may be obsolete now that magic link is decided (D40, confirmed). Check against the delivered body text once it arrives (B3). If obsolete, the count drops to 11 and the removal is noted here, not silently dropped.
+Tiffany flagged on the Aug 14 call that one of the 12 triggered emails (new-user-login approval) may be obsolete now that magic link is decided (D40, confirmed). `org_member_approved` is written into this spec as a magic-link email already, so the working assumption is that it's being kept, just reworded for the new login method, not dropped. Confirm this reading when the body is captured rather than assuming it.
 
 **No formal mobile capture for these 12 (B3).** Wix's triggered-email editor has no mobile preview for any of the 12 templates; formal mobile capture is waived for these 12 specifically. This does not answer B6/O7, which covers the 18 bound UI surfaces and remains open.
 
@@ -80,9 +82,30 @@ Reply-to: the sending address. Recipients: both staff addresses, from environmen
 | **Trigger** | Organization submitted at MP-03 |
 | **Entity** | `organization` / the new organization's id |
 | **Subject** | `Organization Pending Approval: {organizationName}` |
-| **Variables** | organizationName, primaryContactName, primaryContactEmail, city, adminUrl |
+| **Variables** | `organizationName`, `organizationAddress`, `organizationPhone`, `organizationWebsite`, `primaryContactName`, `primaryContactEmail`, `primaryContactPhone`, `adminUrl` |
 
-Body must contain: the organization name, the primary contact's name and email, the city, and a link to ADMIN-01. `[CAPTURE]` body.
+**Body:**
+
+> **New Organization Pending Approval**
+>
+> The following organization has requested approval to use the Love in Action Database:
+>
+> **Organization Details**
+> Name: {organizationName}
+> Address: {organizationAddress}
+> Phone Number: {organizationPhone}
+> Website: {organizationWebsite}
+>
+> **Primary Contact**
+> Name: {primaryContactName}
+> Email: {primaryContactEmail}
+> Phone: {primaryContactPhone}
+>
+> [Button: Review & Approve] → {adminUrl} (`/admin/organizations`, ADMIN-01)
+
+Variable resolution: `organizationName`→`organizations.name`. `organizationAddress`→`organizations.address_formatted`. `organizationPhone`→`organizations.phone`. `organizationWebsite`→`organizations.website_url`. `primaryContactName/Email/Phone`→`people` via `organizations.primary_contact_person_id`. One approval link, not the two Wix sent (D55).
+
+---
 
 ### `staff_new_item_request`
 
@@ -91,9 +114,25 @@ Body must contain: the organization name, the primary contact's name and email, 
 | **Trigger** | Item request submitted at MP-08, or moved to pending at MP-09 |
 | **Entity** | `item_request` / the request id |
 | **Subject** | `Item Request Pending Approval: {itemRequestName}` |
-| **Variables** | itemRequestName, organizationName, itemCount, adminUrl |
+| **Variables** | `itemRequestName`, `organizationName`, `organizationPrimaryContact`, `organizationPrimaryContactEmail`, `adminUrl` |
 
-Body must contain: the request title, the submitting organization, how many items it asks for, and a link to ADMIN-02. `[CAPTURE]` body.
+**Body:**
+
+> **Item Request Pending Approval**
+>
+> A new item request has been submitted. Here are the details for review & approval:
+>
+> **Item Request Details**
+> Request Name: {itemRequestName}
+> Organization: {organizationName}
+> Primary Contact: {organizationPrimaryContact}
+> Primary Contact's Email: {organizationPrimaryContactEmail}
+>
+> [Button: View/Approve Item Request] → {adminUrl} (`/admin/requests`, ADMIN-02, Items filter)
+
+Variable resolution: `itemRequestName`→`item_requests.title`. `organizationName`→`organizations.name` via `item_requests.org_id`. Contact fields→`people` via `organizations.primary_contact_person_id`. States contact info, not an item count; captured source has no count.
+
+---
 
 ### `staff_new_volunteer_request`
 
@@ -102,9 +141,25 @@ Body must contain: the request title, the submitting organization, how many item
 | **Trigger** | Volunteer request submitted at MP-11, or moved to pending at MP-12 |
 | **Entity** | `volunteer_request` / the request id |
 | **Subject** | `Volunteer Request Pending Approval: {volunteerRequestName}` |
-| **Variables** | volunteerRequestName, organizationName, roleCount, adminUrl |
+| **Variables** | `volunteerRequestName`, `organizationName`, `organizationPrimaryContact`, `organizationPrimaryContactEmail`, `adminUrl` |
 
-Body must contain: the request title, the organization, how many roles, and a link to ADMIN-02. `[CAPTURE]` body.
+**Body:**
+
+> **Volunteer Request Pending Approval**
+>
+> A new volunteer opportunity has been submitted. Here are the details for review & approval:
+>
+> **Volunteer Request Details**
+> Volunteer Request: {volunteerRequestName}
+> Organization: {organizationName}
+> Primary Contact: {organizationPrimaryContact}
+> Primary Contact's Email: {organizationPrimaryContactEmail}
+>
+> [Button: View/Approve Volunteer Request] → {adminUrl} (`/admin/requests`, ADMIN-02, Volunteer filter)
+
+Variable resolution: same pattern as `staff_new_item_request`, sourced from `volunteer_requests`.
+
+---
 
 ### `staff_new_user`
 
@@ -113,11 +168,27 @@ Body must contain: the request title, the organization, how many roles, and a li
 | **Trigger** | Member invited at MP-06 |
 | **Entity** | `org_membership` / the new membership id |
 | **Subject** | `New Member Pending Approval: {memberName}` |
-| **Variables** | memberName, memberEmail, organizationName, invitedByName, adminUrl |
+| **Variables** | `memberName`, `memberEmail`, `memberPhone`, `organizationName`, `submitterName`, `submitterEmail`, `adminUrl` |
 
-Body must contain: who was invited, their email, which organization, who invited them, and a link to ADMIN-03. `[CAPTURE]` body.
+**Body:**
 
-The current version links to the person's record in the old contacts system. The replacement links to ADMIN-03, which is where the approval now happens.
+> **New Database User Pending Approval**
+>
+> An Alliance Member has requested a new teammate be given access to the Love in Action Database. Here is their information:
+>
+> **Requesting Member Details**
+> Organization: {organizationName}
+> Requesting Contact: {submitterName}
+> Requesting Contact's Email: {submitterEmail}
+>
+> **New Member Details**
+> Name: {memberName}
+> Email: {memberEmail}
+> Phone: {memberPhone}
+>
+> [Button: Review & Approve New Member] → {adminUrl} (`/admin/members`, ADMIN-03)
+
+Variable resolution: `submitterName/Email`→the inviting user, from `org_memberships.invited_by`. `memberName/Email/Phone`→the invited person's `people` row. Links to ADMIN-03, not the old contacts-system record.
 
 ---
 
@@ -133,13 +204,43 @@ Reply-to: the staff primary contact address, so a member replying reaches a pers
 | **Recipient** | Primary contact |
 | **Entity** | `organization` / the organization id |
 | **Subject** | `Welcome to the Love in Action Database {organizationName}` |
-| **Variables** | organizationName, contactFirstName, loginUrl |
+| **Variables** | `organizationName`, `orgAddress`, `orgPhoneNumber`, `websiteUrl`, `missionStatement`, `primaryPopulationServed`, `organizationPrimaryContact`, `organizationPrimaryContactEmail`, `organizationPrimaryContactPhone`, `dashboardUrl` |
 
-Body must contain: a welcome, the organization name, how to log in, and a link. `[CAPTURE]` body.
+**Body:**
+
+> **Your Organization Has Been Approved!**
+>
+> Hi {organizationName},
+>
+> You've been approved to start using The Alliance's Love in Action Database! We can't wait to help get your donation needs and volunteer opportunities met by community members.
+>
+> Within the next few minutes you will be receiving a second email with instructions on how to log in to your new dashboard.
+>
+> Please review the information in your organization's profile below and save this email for your records.
+>
+> [Button: Go to Your Dashboard] → {dashboardUrl} (`/login`)
+>
+> **Organization Details**
+> Name: {organizationName}
+> Address: {orgAddress}
+> Phone: {orgPhoneNumber}
+> Website: {websiteUrl}
+> Mission Statement: {missionStatement}
+> Population Served: {primaryPopulationServed}
+>
+> Primary Contact: {organizationPrimaryContact}
+> Primary Contact's Email: {organizationPrimaryContactEmail}
+> Primary Contact's Phone #: {organizationPrimaryContactPhone}
+>
+> If you have questions about using any of the features of this database, please email **Christina Moe**, our Love in Action Program Director, at christina@defendingthecause.org.
 
 **This is the highest-consequence email in the system.** It is how an approved organization learns it can start posting. A silent failure leaves them waiting indefinitely with no signal anywhere they can see. ADMIN-01's result message states the failure explicitly for this reason.
 
-**Login method: magic link (D40, confirmed Aug 14).** Body copy describes requesting a link at `/login`, not entering a password. Tiffany reviewed the reasoning and did not object.
+**No logo block.** `organizations.logo_url` is null for every organization this sprint (D50). This template does not render an organization logo image, including the placeholder captured in the source.
+
+**The "second email"** this body promises is `org_member_approved`, below. Not yet captured.
+
+---
 
 ### `org_request_received`
 
@@ -149,11 +250,33 @@ Body must contain: a welcome, the organization name, how to log in, and a link. 
 | **Recipient** | The submitting member |
 | **Entity** | `item_request` or `volunteer_request` / the request id |
 | **Subject** | `{itemOrVolunteer} Request Pending Approval: {requestName}` |
-| **Variables** | itemOrVolunteer, requestName, organizationName, submitterFirstName |
+| **Variables** | `itemOrVolunteer`, `organizationName`, `requestName`, `requestDescription`, `requestContactName`, `requestContactEmail`, `requestContactPhone`, `requestId`, `itemsOrRoles` |
 
-`itemOrVolunteer` renders as the word the current subject line uses for each type. `[CAPTURE]` both exact words; they appear in the subject and getting them wrong is visible in every member's inbox.
+**Body:**
 
-Body must contain: confirmation the request was received, that staff review it before it goes public, and what happens next. `[CAPTURE]` body.
+> **Request Pending Approval**
+>
+> Hi {organizationName},
+>
+> Thank you for submitting the following request through The Alliance's Love in Action Database. Our team will create a custom graphic with your logo and publish your need within 1–2 business days. Once your post goes live, you will receive a confirmation email with the information so you can share this need to your own community and social media platforms.
+>
+> **Request Details**
+> Name: {requestName}
+> Description: {requestDescription}
+>
+> Request Contact: {requestContactName}
+> Contact's Email: {requestContactEmail}
+> Contact's Phone: {requestContactPhone}
+> Unique ID: {requestId}
+>
+> **{itemOrVolunteer}s Details**
+> {itemsOrRoles}
+
+`itemOrVolunteer` renders as the word the subject line uses for each type. **`[CAPTURE]` the two exact words** — captured source shows the raw placeholder, not the resolved text, so this is still open. Getting it wrong is visible in every member's inbox.
+
+Variable resolution: `organizationName`→`organizations.name` via the request's `org_id`. `requestName/Description`→the request's `title/description`. `requestContactName/Email/Phone`→the request's own contact fields, captured as two inputs at MP-07/MP-10 (D41), not the organization's `primary_contact_person_id`. `itemsOrRoles`→the items or roles on the request at submission.
+
+---
 
 ### `org_request_approved`
 
@@ -163,13 +286,42 @@ Body must contain: confirmation the request was received, that staff review it b
 | **Recipients** | Organization's primary contact **and** the request's creator. One email each. If they are the same person, one email total |
 | **Entity** | `item_request` or `volunteer_request` / the request id |
 | **Subject** | `Your Love in Action Request was Approved!` |
-| **Variables** | requestName, organizationName, recipientFirstName, publicUrl |
+| **Variables** | `organizationName`, `viewRequestUrl`, `requestName`, `requestDescription`, `requestContactName`, `requestContactEmail`, `requestContactPhone`, `itemOrVolunteer`, `itemsOrRoles` |
 
-Body must contain: the request title, that it is now public, and a link to the public page so the organization can share it. `[CAPTURE]` body.
+**Body:**
 
-The public link is worth confirming exists in the captured body. Organizations share these to their own donor networks, and a link in the approval email is the moment they are most likely to do it.
+> **Your Request Has Been Approved!**
+>
+> Hi {organizationName},
+>
+> Your request was approved and published to the Love in Action Database!
+>
+> For your convenience, here is the URL to your published need and a photo so you can share this request with your community and post it on your social media sites.
+>
+> URL: {viewRequestUrl}
+>
+> **Request Details**
+> Name: {requestName}
+> Description: {requestDescription}
+>
+> **Request Contact**
+> Request's Contact: {requestContactName}
+> Contact's Email: {requestContactEmail}
+> Contact's Phone: {requestContactPhone}
+>
+> **{itemOrVolunteer}s Details**
+> {itemsOrRoles}
+>
+> Thank you,
+> **The Alliance Love in Action Team**
+>
+> [Button: View Your Request] → {viewRequestUrl}
+
+The public link is present, confirmed (`viewRequestUrl`). `viewRequestUrl`→`/items/{id}` or `/volunteer/{id}` per the URL architecture doc.
 
 **Dedup:** depends on the index fix in section 1. Without it the second recipient gets nothing.
+
+---
 
 ### `org_member_approved`
 
@@ -179,13 +331,15 @@ The public link is worth confirming exists in the captured body. Organizations s
 | **Recipient** | The new member |
 | **Entity** | `org_membership` / the membership id |
 | **Subject** | `Love in Action Database Login Info for {memberName}` |
-| **Variables** | memberName, organizationName, loginUrl, dashboardUrl |
+| **Variables** | `memberName`, `organizationName`, `loginUrl`, `dashboardUrl` |
 
-Body must contain: that they have been approved, which organization, how to log in, and a link. `[CAPTURE]` body.
+Body must contain: that they have been approved, which organization, how to log in, and a link. **`[CAPTURE]` body.** Not yet retrieved.
 
 Second-highest consequence after `org_approved`, and it fails the same way: the person can log in but has no way to find out. ADMIN-03's result message states a failure explicitly.
 
 Login wording describes requesting a link at `/login`, not entering a password (D40, confirmed Aug 14).
+
+---
 
 ### `org_new_item_donation`
 
@@ -193,31 +347,85 @@ Login wording describes requesting a link at `/login`, not entering a password (
 |---|---|
 | **Trigger** | Item pledge recorded at PB-02 |
 | **Recipient** | The request's contact person |
+| **Reply-to** | The donor's email |
 | **Entity** | `item_pledge` / the pledge id |
 | **Subject** | `Item(s) have been donated for {requestName}` |
-| **Variables** | requestName, donorName, donorEmail, donorPhone, itemSummary, supportersUrl |
+| **Variables** | `organizationName`, `requestName`, `requestDescription`, `requestUrl`, `items`, `donorName`, `donorEmail`, `donorPhone`, `supportersUrl` |
 
-`itemSummary` uses the same computed format as MP-13: quantity, `x`, space, item name, comma-separated. Compute it once, in one place, shared with MP-13, so the email and the screen never disagree.
+**Body:**
 
-Body must contain: which request, who pledged, what they pledged with quantities, their contact details, and a link to MP-13. `[CAPTURE]` body.
+> **New Item(s) Have Been Donated!**
+>
+> Hi {organizationName},
+>
+> Congratulations, someone is interested in donating items to your organization! Their details and which item(s) they've claimed are included below. This donor has been instructed to reach out to you in the **next 2 weeks** to set up delivery of the item(s) but you may also contact them directly.
+>
+> **Request Details**
+> Name: {requestName}
+> Description: {requestDescription}
+> Request Link: {requestUrl}
+>
+> **Item(s) Donated**
+> Item | Number Donated
+> {items}
+>
+> **Donor Information**
+> Name: {donorName}
+> Email: {donorEmail}
+> Phone: {donorPhone}
+>
+> Thank you,
+> **The Alliance Love in Action Team**
+>
+> [Button: View Donors] → {supportersUrl} (`/dashboard/supporters`, MP-13)
 
-`entity_type` is `item_pledge`, which is not in the `approval_events` check constraint and does not need to be; `email_log.entity_type` is an unconstrained text column. Each pledge is distinct, so dedup here prevents a double-send on a retry rather than blocking legitimate repeats.
+`organizationName` added to the variable list (D56) — required by the greeting, missing from the original table. `items` is `item_pledge_lines` for this pledge, one table row per item (D51). `donorName/Email/Phone`→the pledging `people` row.
+
+`entity_type` is `item_pledge`, not in the `approval_events` check constraint and doesn't need to be; `email_log.entity_type` is unconstrained text. Dedup here prevents a double-send on retry, not legitimate repeats.
+
+---
 
 ### `org_new_volunteer`
 
 | | |
 |---|---|
 | **Trigger** | Volunteer signup recorded at PB-04 |
-| **Recipient** | The request's contact person |
+| **Recipient** | The request's contact person, and both staff addresses (D53) |
 | **Entity** | `volunteer_signup` / the signup id |
 | **Subject** | `A Volunteer has Expressed Interest in Serving` |
-| **Variables** | requestName, volunteerName, volunteerEmail, volunteerPhone, roleList, notes, supportersUrl |
+| **Variables** | `organizationName`, `requestName`, `requestDescription`, `requestDetails`, `requestUrl`, `roles`, `donorName`, `donorEmail`, `donorPhone`, `donorNotes`, `supportersUrl` |
 
-Body must contain: which request, who expressed interest, which roles, their contact details, **their notes**, and a link to MP-13. `[CAPTURE]` body.
+**Body:**
 
-The notes field carries availability, experience, and any accommodation the volunteer needs. It must appear in this email in full, not truncated. If the captured body omits it, add it and note the addition, because this is the email the organization acts on and the accommodation is the part they most need to read before making contact.
+> **A New Volunteer Has Expressed Interest!**
+>
+> Hi {organizationName},
+>
+> Congratulations, someone is interested in volunteering with your organization! Their details and which role(s) they are interested in are included below. Please reach out to this person in the **next 1–3 business days** to confirm the requirements for this volunteer opportunity and provide any additional details they need for participating.
+>
+> **Request Details**
+> Name: {requestName}
+> Description: {requestDescription}
+> Details: {requestDetails}
+> Request Link: {requestUrl}
+>
+> **Role Details**
+> {roles}
+>
+> **Volunteer Information**
+> Name: {donorName}
+> Email: {donorEmail}
+> Phone: {donorPhone}
+> Notes: {donorNotes}
+>
+> Thank you,
+> **The Alliance Love in Action Team**
+>
+> [Button: View Volunteers] → {supportersUrl} (`/dashboard/supporters`, MP-13)
 
-Subject line stays as captured (D30). Adding the request title would improve inbox distinguishability but is a bound-artifact deviation deferred to phase two.
+`organizationName` added (D56), same as `org_new_item_donation`. Both staff addresses are recipients alongside the org contact (D53), matching captured behavior. `donorNotes` is the free-text field from PB-04, shown in full, never truncated — this is the email the organization acts on and the accommodation is the part they most need to read before making contact.
+
+Subject line stays as captured (D30). Confirmed matching the captured source exactly.
 
 ---
 
@@ -233,29 +441,90 @@ Reply-to: the requesting organization's contact email, so a donor replying reach
 | **Recipient** | The person who pledged |
 | **Entity** | `item_pledge` / the pledge id |
 | **Subject** | `Thank you for donating item(s) to {organizationName}` |
-| **Variables** | donorFirstName, organizationName, itemSummary, orgContactName, orgContactEmail, orgContactPhone, dropoffLocation, requestUrl |
+| **Variables** | `donorName`, `organizationName`, `requestContactName`, `requestContactEmail`, `requestContactPhone`, `requestName`, `requestDescription`, `requestDeadlineType`, `dropoffLocation`, `requestUrl`, `items` |
 
-Body must contain: thanks, what they pledged with quantities, **the organization's contact information**, and the dropoff location when the request has one. `[CAPTURE]` body.
+**Body:**
 
-The organization's contact details are required, per `Handbook.md` section 13. This email is the only channel a donor has to ask a question, change a quantity, or cancel, because there is no path in the app to modify a pledge. If the contact details are missing, the donor has nowhere to go.
+> **Thank You for Meeting a Need!**
+>
+> Hi {donorName},
+>
+> Thank you so much for signing up to meet a need through {organizationName}! Please collect or purchase the item(s) within the **next 2 weeks** and reach out to {requestContactName} at ({requestContactEmail}) to coordinate delivery. You are welcome to mail the item(s) or set up a time to drop off. If you have questions regarding this donation, please feel free to reach out directly to {requestContactName}.
+>
+> By participating in The Alliance's **Love in Action Program**, you are making a difference for local kids and families!
+>
+> Here are the details of the need you are meeting:
+>
+> **Contact**
+> Name: {requestContactName}
+> Email: {requestContactEmail}
+> Phone #: {requestContactPhone}
+>
+> **Request Details**
+> Name: {requestName}
+> Description: {requestDescription}
+> Deadline Type: {requestDeadlineType}
+> {dropoffLocation — omitted when null, per section 2}
+> Website Link: {requestUrl}
+>
+> **Item(s) Donated**
+> Item | Number Donated
+> {items}
+>
+> Thank you,
+> **The Alliance Love in Action Team**
+>
+> If you have any questions or you email the contact and do not hear back from them within 1 week, please email **Christina Moe**, our Love in Action Program Director, at christina@defendingthecause.org.
 
-If the captured body states a fulfillment window, keep it exactly. It corresponds to the agreement checkbox at PB-02 and organizations plan around it.
+The fulfillment window ("next 2 weeks") is kept exactly as captured, matching the PB-02 agreement checkbox. `donorName` is the full name, not first-name-only, matching captured source. `dropoffLocation`→`item_requests.dropoff_location`, nullable; omitted when null, never rendered as "N/a." Deadline-date line omitted unless `deadline_type = 'date_specific'`.
+
+This email is the only channel a donor has to ask a question, change a quantity, or cancel, since there is no path in the app to modify a pledge — the organization's contact details are required content, never optional.
+
+---
 
 ### `donor_volunteer_confirmation`
 
 | | |
 |---|---|
 | **Trigger** | Volunteer signup recorded at PB-04 |
-| **Recipient** | The person who signed up |
+| **Recipient** | The person who expressed interest |
 | **Entity** | `volunteer_signup` / the signup id |
 | **Subject** | `Thank you for expressing interest in volunteering!` |
-| **Variables** | volunteerFirstName, organizationName, requestName, roleList, orgContactName, orgContactEmail, orgContactPhone, followUpWindow, requestUrl |
+| **Variables** | `donorName`, `organizationName`, `requestContactName`, `requestContactEmail`, `requestContactPhone`, `requestName`, `requestDescription`, `requestDeadlineType`, `requestDetails`, `requestUrl`, `roles`, `followUpWindow` |
 
-Body must contain: thanks, which roles they expressed interest in, that the organization will follow up, **the stated follow-up window**, and the organization's contact details. `[CAPTURE]` body.
+**Body:**
 
-The follow-up window is a promise the organization keeps. Christina confirmed on the Aug 14 call that the 48-hour target is being hit in practice (O3); no change to the stated window. Capture the exact period and wording from both this template and PB-04's on-screen confirmation, and make sure they agree. If they disagree today, that is a defect worth fixing rather than a bound inconsistency worth preserving; take it to the captain. Literal copy is still `[CAPTURE]`.
+> **Thank You for Expressing Interest!**
+>
+> Hi {donorName},
+>
+> Thank you so much for signing up to volunteer with {organizationName}! {requestContactName} from their team will be reaching out to you **within {followUpWindow}** with more details. If you have any questions or want to reach out directly, you can email them at ({requestContactEmail}).
+>
+> By participating in The Alliance's Love in Action Program, you are making a difference for local kids and families!
+>
+> Here are the details of this volunteer role:
+>
+> **{organizationName} Contact**
+> Name: {requestContactName}
+> Email: {requestContactEmail}
+> Phone #: {requestContactPhone}
+>
+> **Request Details**
+> Name: {requestName}
+> Description: {requestDescription}
+> Volunteer Type: {requestDeadlineType}
+> Details: {requestDetails}
+> Website Link: {requestUrl}
+>
+> **Role Details**
+> {roles}
+>
+> Thank you,
+> **The Alliance Love in Action Team**
+>
+> If you have any questions or do not hear from the {organizationName} contact within 1 week, please email **Christina Moe**, our Love in Action Program Director, at christina@defendingthecause.org.
 
-This email records interest, not a booking. The wording should not read as a confirmed shift.
+**`followUpWindow` = "1-3 business days," added per D52.** Captured source said only "soon," with no number — the spec requires a stated window matching PB-04's on-screen text and `org_new_volunteer`'s commitment to the org (1-3 business days) and Christina's confirmed 48-hour operational target. Decided to state it explicitly rather than leave it vague. **When PB-04's on-screen confirmation copy is captured, it must use the same wording** — that capture is still open, tracked in `OPEN-ITEMS.md` section C, not here.
 
 ---
 
@@ -281,8 +550,8 @@ Then the negative tests:
 
 | What is needed | Source |
 |---|---|
-| **All twelve body texts, verbatim** | The sending platform's triggered-email editor. Owner-level access. **Add to the pre-Monday ask list.** On arrival, check whether the new-user-login approval template is obsolete under D40 (B3); if it is, note the removal here rather than dropping it silently |
+| **`org_member_approved` body, verbatim** | The sending platform's triggered-email editor. Owner-level access. On arrival, confirm it's being kept (reworded for magic link) rather than dropped — see section 3 |
+| **The two words `itemOrVolunteer` renders as**, exact capitalization | Same source, `org_request_received` and `org_request_approved` subjects |
+| PB-04's on-screen confirmation copy, must match `donor_volunteer_confirmation`'s "1-3 business days" (D52) once captured | Capture walkthrough, `OPEN-ITEMS.md` section C |
 | Formal mobile capture of the 12 templates | **Waived** per B3. Does not answer B6/O7 |
-| The two words `itemOrVolunteer` renders as | Same source |
-| Whether the follow-up window in `donor_volunteer_confirmation` matches PB-04's on-screen text | Capture both, then captain if they disagree. O3 confirmed the 48-hour operational target; literal wording is still capture |
 | From address, display name, and staff recipient addresses | Executive director |

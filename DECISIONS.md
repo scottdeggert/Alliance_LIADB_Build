@@ -24,7 +24,7 @@ Not a tiebreaker call. Staff approval of every public request is a governance pr
 
 **D3. Public claim and signup forms collect first and last name as two inputs.** (PB-02, PB-04)
 
-Tiebreaker says the donor wins on public flows, and two short adjacent fields cost a donor almost nothing. Against that: single-field name splitting produces the parsing failure in `Handbook.md` section 15, and it is what stops a returning supporter from resolving to one person. Sam Ortiz and Samuel Ortiz stay one human only if the fields are stored as entered.
+Tiebreaker says the donor wins on public flows, and two short adjacent fields cost a donor almost nothing. Against that: single-field name splitting produces the parsing failure in `Handbook.md` section 16, and it is what stops a returning supporter from resolving to one person. Sam Ortiz and Samuel Ortiz stay one human only if the fields are stored as entered.
 
 If capture shows the fields are already split, this deviation disappears.
 
@@ -201,6 +201,36 @@ If the send job isn't built out for Thursday's demo, the digest gets shown manua
 
 ---
 
+**D51. Item and role lists in email bodies render as tables, not the MP-13 inline string.** (`org_new_item_donation`, `org_new_volunteer`, `donor_item_confirmation`, `donor_volunteer_confirmation`)
+
+Captured source renders `Item | Number Donated` as a table and role lists under their own heading, matching what's live today, not the "3x Blankets, 2x Pillows" inline format MP-13 uses on screen. Both read the same computed data (`item_pledge_lines` / `volunteer_signup_roles`); the "email and screen never disagree" requirement is read as applying to the values, not the string format. Presentation differs by context.
+
+**D52. `donor_volunteer_confirmation` states an explicit follow-up window: "within 1-3 business days."**
+
+Captured source said only "soon," no number. The organization is committed to responding in 1-3 business days (`org_new_volunteer`), and Christina confirmed a 48-hour target is being hit in practice (O3). The volunteer's own confirmation email previously stated no window at all, which the spec flags as worth fixing if a mismatch is real. Decided to state it explicitly rather than leave it vague, matching what the organization is already held to. **PB-04's on-screen confirmation copy must use the same wording when captured** — tracked in `OPEN-ITEMS.md` section C, not resolved by this decision alone.
+
+**D53. `org_new_volunteer` sends to both staff addresses in addition to the request's contact person.**
+
+Captured source lists "the request's contact person & Alliance Admin" as recipients, where the original spec listed only the contact person. Built to match captured behavior. Low cost, reversible: if Christina says she doesn't want a staff copy of every volunteer-interest notification after go-live, this is a one-line change.
+
+**D54. `staff_new_org`'s variable list expands from the original minimum (name, primary contact name/email, city) to the full captured set:** organization address, phone, and website, plus the primary contact's phone.
+
+Captured source includes all of these. The original spec table was a placeholder minimum ("body must contain" language, not an exhaustive list); superseded by real content, not a deviation from it.
+
+**D55. `staff_new_org` and `staff_new_user` each route to a single admin queue link, not the two separate CMS record links Wix sent.**
+
+Wix sent a button to approve the organization record and a separate button to approve the contact record on `staff_new_org`. ADMIN-01 approves both, the organization and its owner membership, in one transaction, so one link replaces both. Same logic on `staff_new_user`: the captured button links to the person's record in the old contacts system; the replacement links to ADMIN-03, where the approval actually happens now.
+
+**D56. `organizationName` is added to the variable lists for `org_new_item_donation` and `org_new_volunteer`.**
+
+Both original spec tables omitted it despite the greeting line ("Hi {organizationName}") requiring it in every captured body. Spec completeness fix, not a design decision.
+
+**D57. `org_approved`, `org_request_received`, and `org_request_approved` greet by organization name, not a contact's first name.**
+
+Captured source consistently opens "Hi {organizationName}," across all three. Supersedes the placeholder `contactFirstName` / `submitterFirstName` / `recipientFirstName` variables in the original spec tables.
+
+---
+
 ## 5. Schema decisions, ratified
 
 **D31.** `approval_events.entity_type` accepts `person`, so the duplicate merge is auditable.
@@ -217,7 +247,7 @@ All four are already in `migrations/0001_initial_schema.sql`.
 
 ## 6. Migration
 
-**D35. `owner` role is inferred from the organization's primary contact email.** The source has no role concept. Anything else requires a human to assign 48 owners by hand.
+**D35. `owner` role is inferred from the organization's primary contact email.** The source has no role concept. Anything else requires a human to assign 49 owners by hand.
 
 **D36. No `approval_events` backfill.** The source records neither actor nor timestamp for approvals. An empty audit trail with a known start date is honest; a fabricated one is not.
 
@@ -281,6 +311,24 @@ This is the most visible change to the login experience, so it goes to Tiffany a
 
 Two logo variants (`alliance-logo-blue.png`, `alliance-logo-gradient.png`), page headers under `assets/headers/`, and member-dashboard graphics under `assets/member_dashboard_graphics/`. No further ask of the executive director. `Design.md` covers color and type tokens; this folder covers raster brand assets.
 
+**D50. Member-organization logos are out of scope for this sprint.**
+
+They are not in the LIA CMS. They live on the public Alliance site's non-profits page, which is part of the main site and is not being retired alongside LIA. `organizations.logo_url` stays in the schema and stays null on every migrated row; no surface renders it this week.
+
+It gets populated when the per-organization shareable page is built in phase two — that page is the reason the column exists. Harvesting the 62 logos is a small Playwright job at that point, not now.
+
+Closes the open item in `docs/migration/field-map.md` section 20.
+
+---
+
+## 10a. Build requirements stated inside decisions
+
+Two rulings above contain build requirements rather than documentation notes. Both are Lane C verification items and are listed in `OPEN-ITEMS.md` section V so they have an owner.
+
+**From D48:** ADMIN-02's approve action must write `approved_at = now()` and `approved_by` in the same transaction as the status change. If it does not, every request approved during cutover week is invisible to the first real digest.
+
+**From D44:** the organization disable action must not clear `approved_at` or `approved_by`. That is the historical record Christina needs for annual reporting.
+
 ---
 
 ## 11. Still genuinely open
@@ -311,6 +359,54 @@ O1 closed as D45. O3 is answered and kept here for the record. Remaining unanswe
 | O9 | Where the line falls between a real population and a free-text value | The distinct-value list from the test export. Then a ten-minute review with Christina |
 | O10 | Everything in `OPEN-ITEMS.md` section C | The capture walkthrough. Not questions, just work |
 | O11 | Everything in `OPEN-ITEMS.md` section TE | The test export |
+
+---
+
+## 12. Infrastructure
+
+**D58. The database runs on Replit's managed Postgres (Helium),
+development and production, and may stay there permanently. Portability
+is preserved through driver choice, not through migrating.**
+
+Replit's own hosting is a legitimate long-term home for this system, not
+a stopgap. Tiffany running LIA entirely within a platform she already
+pays for is a real convenience, not a compromise, and nothing about the
+architecture requires leaving it. This decision does not schedule a
+migration, does not require verifying one, and does not treat staying on
+Replit as something to correct later.
+
+What it does require: **the application never imports
+`@neondatabase/serverless` or any Neon-specific query client.** Every
+database call, including Better Auth's own connection, goes through
+standard `pg` (node-postgres) over a normal TCP connection string. That
+one rule is what keeps the door open. It costs nothing to follow whether
+or not the door is ever used, and it means that if a future maintainer
+ever does want to move this to Neon, Supabase, or anywhere else, the
+change is one environment variable, not a rewrite. Same shape as D39's
+approach to image storage: pick the convenient default, keep one clean
+interface, no deadline attached to leaving it.
+
+Closes the open item "verify Replit actual DB connection details" in
+`OPEN-ITEMS.md`. There is nothing left to verify; Helium is the answer, and
+it's a fine one.
+
+---
+
+## 13. Capture-inferred scope
+
+**D59. MP-05 combines organization detail editing and member management on one surface.** (closes C4)
+
+MP-04's dashboard has exactly one tile for organization-level changes,
+"Edit My Organization," distinct from "Add Another User," which is
+create-only and maps to MP-06. No third tile exists for removing or
+managing members. Since D5/D6 already establishes that any active member
+can remove another, that function has to live somewhere, and "Edit My
+Organization" is the only candidate the dashboard offers.
+
+Inferred from MP-04-desktop.png, Aug 16 2026, not from a direct capture
+of the surface itself. If a screenshot of "Edit My Organization" surfaces
+before build and shows otherwise, this ruling reverses without ceremony,
+it was never load-bearing on anything except this one surface's shape.
 
 ---
 
