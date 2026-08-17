@@ -1,6 +1,6 @@
 # OPEN-ITEMS.md
 
-Every open question in the corpus, in one place. Sourced from all twenty-six specs, `Handbook.md`, `DECISIONS.md`, `docs/email/TEMPLATES.md`, and `docs/migration/field-map.md`.
+Every open question in the corpus, in one place. Sourced from all twenty-seven specs, `Handbook.md`, `DECISIONS.md`, `docs/email/TEMPLATES.md`, and `docs/migration/field-map.md`.
 
 **Scope boundary.** This file tracks open items for **the build**: decisions, copy, credentials, and captures that a builder or an agent needs in order to write code this week.
 
@@ -19,7 +19,7 @@ Organized by **who can answer it**, because that is what determines whether it c
 1. **Contacts export** — from Customers & Leads, not CMS. Requires owner-level permissions the captain does not have; Tiffany must pull it. Without it there are no logins, no memberships, and no subscriber list. Filtered to the labels `Member Organization Representatives` and `Approved Area Needs Member`, roughly 150 rows, is enough. The full 2,321-contact export is only needed for `digest_subscribers`, which is not on the critical path.
 2. ~~**Twelve email body texts**~~ — **closed 2026-08-16, eleven of twelve.** Staff, Member Organization, and Community email exports captured and merged into `docs/email/TEMPLATES.md` sections 4-6, with three content questions resolved as D51-D57 in `DECISIONS.md`. One body remains: `org_member_approved`, the membership-activation email referenced inside `org_approved`'s own copy (see `TEMPLATES.md` section 5 and section 8's open-captures table).
 3. **Staff roster** — who gets `staff_admin` or `staff_approver`. Nobody can log into `/admin` until these memberships exist.
-4. **Capture walkthrough** — roughly 145 observation items across eighteen bound surfaces (section C). Not decisions; just work.
+4. ~~**Capture walkthrough**~~ — **closed Aug 16 2026.** Zero inline `[CAPTURE]` markers across all 27 specs. MP-05 member dropdown was the last item; closed with decided label format. **14 repo-wide** remain as prose references to the marker convention in OPEN-ITEMS, Handbook, TEMPLATES, etc., not open build work.
 
 ~~Verify Replit actual DB connection details once live project is created (Neon vs. Helium)~~ — **closed as D58.** Staying on Replit-managed Postgres (Helium) is the deliberate answer, not a placeholder pending verification. Standard `pg` driver only; no Neon-specific client.
 
@@ -31,9 +31,7 @@ Organized by **who can answer it**, because that is what determines whether it c
 
 ## A. Captain decisions
 
-All captain decisions through D49 are recorded in `DECISIONS.md`. See that file for the full list and reasoning. Do not reopen settled items here. D40 confirmed on the Aug 14 call (closes B5). D49 closes B9. O1 closed as D45. O3 answered: 48-hour target is being hit; literal confirmation-screen copy remains a capture item.
-
----
+All captain decisions through D61 are recorded in `DECISIONS.md`. See that file for the full list and reasoning. Do not reopen settled items here. D40 confirmed on the Aug 14 call (closes B5). D49 closes B9. O1 closed as D45. O3 answered: 48-hour target is being hit. **O9 closed as D61** (Christina, Aug 16 2026): ten canonical populations plus Other, not seed-all-24. **O12 closed Aug 16 2026:** PB-04 on-screen copy harmonized to 1-3 business days, matching D52. **O13 closed Aug 16 2026:** PB-05 stays digest-only; other three lists deferred to phase two per `LIA_Phase_Two_Backlog.md` item 9.
 
 ## B. Asks of other people
 
@@ -41,7 +39,7 @@ All captain decisions through D49 are recorded in `DECISIONS.md`. See that file 
 |---|---|---|---|---|
 | B1 | ~~**Test export**, sample from all six CMS collections~~ | Site owner | The whole migration lane | **Closed 2026-08-14.** All six collections exported and audited. See `docs/migration/data-audit.md`. |
 | B2 | **Contacts export**, with labels and marketing subscriptions | Site owner | Member approval state, subscriber list | **Now the top blocker.** Lives in Customers & Leads, not CMS. The captain lacks the permission; Tiffany must pull it. A slice filtered to the labels `Member Organization Representatives` and `Approved Area Needs Member` (~150 rows) unblocks logins and memberships. The full export is only needed for the subscriber table, which is not critical path. Not reconstructable any other way. |
-| B3 | ~~**Twelve email body texts**~~ **One remaining: `org_member_approved`'s body**, from the sending platform's editor | Site owner, owner-level access | Lane B copy for that one template | Eleven of twelve closed 2026-08-16, see `docs/email/TEMPLATES.md` sections 4-6. `org_member_approved`'s own spec entry already assumes it's kept and reworded for magic link rather than dropped — confirm that reading against the delivered body, don't assume it. Wix's triggered-email editor has no mobile preview; formal mobile capture stays waived for these 12 (does not answer B6/O7, which covers the 18 bound UI surfaces) |
+| B3 | ~~**Twelve email body texts**~~ **One remaining: `org_member_approved`'s body**, from the sending platform's editor | Site owner, owner-level access | Lane B copy for that one template | Eleven of twelve closed 2026-08-16, see `docs/email/TEMPLATES.md` sections 4-6. `org_member_approved`'s own spec entry already assumes it's kept and reworded for magic link rather than dropped — confirm that reading against the delivered body, don't assume it. Wix's triggered-email editor has no mobile preview; formal mobile capture stays waived for these 12 (does not answer B6/O7, which covers the 19 bound UI surfaces) |
 | B4 | **Staff list with roles**, `staff_admin` or `staff_approver` | Executive director | All admin testing | Nobody can log into `/admin` until these memberships exist |
 | B5 | **Login method notification** | Executive director | Nothing — decided | **Confirmed.** Magic link per D40. Tiffany reviewed the reasoning on the Aug 14 call and did not object |
 | B6 | **Screenshot folder**, confirm mobile coverage | Executive director | Every bound surface | If desktop-only, mobile capture joins the walkthrough |
@@ -61,41 +59,44 @@ Each spec's section 15 is its own checklist. This is the map, plus the items tha
 
 ### The seven that matter most
 
+All seven are now closed.
+
 | # | Item | Surface | Why |
 |---|---|---|---|
-| C1 | **Exact item summary format**, separator and spacing in `3x Blankets, 2x Pillows` | MP-13 | Now computed rather than stored, appears in an email too, and any difference is instantly visible in side-by-side |
-| C2 | **Dropdown option format**, separator and date format | MP-04 | Members scan those lists by date |
+| ~~C1~~ | ~~Exact item summary format~~ | ~~MP-13~~ | **Closed, Aug 16.** One item per line, no comma. Handbook.md's worked example was wrong, corrected. |
+| ~~C2~~ | ~~Dropdown option format~~ | ~~MP-04~~ | **Closed, Aug 16, grounded default.** `{Title} - {MM/DD/YYYY}`, matching this site's confirmed date convention. |
 | ~~C3~~ | ~~**Is the request contact name one input or two?**~~ | ~~MP-07~~ | **Closed.** Two inputs per D41 and `Handbook.md` section 8. Label capture stays open in MP-07 section 15 |
 | ~~C4~~ | ~~Does MP-05 edit organization details, or only members?~~ | ~~MP-05~~ | **Closed, Aug 16.** Both, per D59. Inferred from MP-04 dashboard tile layout; reverses if direct MP-05 capture shows otherwise. |
-| ~~C5~~ | ~~The two-week agreement checkbox: exists, verbatim text, gates submission~~ | ~~PB-02~~ | **Mostly closed, Aug 16.** Exists, text confirmed: "I agree to fulfill this request within the next 2 weeks." Whether it gates submission is the one piece still open. |
+| ~~C5~~ | ~~The two-week agreement checkbox: exists, verbatim text, gates submission~~ | ~~PB-02~~ | **Mostly closed, Aug 16.** Exists, text confirmed: "I agree to fulfill this request within the next 2 weeks." Default on load confirmed **checked** (two captures). Whether it gates submission still open. |
 | ~~C6~~ | ~~Which location does the volunteer card show~~ | ~~PB-03~~ | **Closed, Aug 16.** Event location, confirmed against `event_location` and all eleven captured cards. |
-| C7 | **Search debounce interval** | PB-01, PB-03 | Time it if no number is readable |
+| ~~C7~~ | ~~Search debounce interval~~ | ~~PB-01, PB-03~~ | **Closed, Aug 16.** 300ms, both surfaces. |
 
 ### Everything else, by surface
 
 | Surface | Capture items | Notes |
 |---|---|---|
-| MP-01 | 3 | Open on copy capture only; magic link confirmed (D40) |
-| MP-02 | 5 | Two strings written fresh per D9; captain reviews before ship |
-| MP-03 | 7 | Twelve field labels. Mobile address and upload controls |
-| MP-04 | 6 | Includes C2. Which statuses appear in each selector, sort order. partially closed Aug 16 |
-| MP-05 | 6 | Scope closed per D59. Field labels and layout still `[CAPTURE]` |
-| MP-06 | 4 | Success message wording matters; it must convey pending, not granted |
-| MP-07 | 8 | C3 closed. Deadline option labels, dropoff field presence |
-| MP-08 | 8 | Whether description, condition, product link appear here |
-| MP-09 | 7 | Status option labels, which request fields are editable |
-| MP-10 | 7 | What distinguishes description from details on screen |
-| MP-11 | 7 | Do not harmonize copy against MP-08 |
-| MP-12 | 7 | Current labels for interested and confirmed |
-| MP-13 | 8 | Includes C1. Whether volunteer notes appear |
-| PB-01 | 8 | Includes C7. Two empty states, captured independently |
-| PB-02 | 6 | Includes C5. Region order, whether requested and remaining both show. partially closed Aug 16 |
-| PB-03 | 6 | Includes C6, C7. partially closed Aug 16 |
-| PB-04 | 10 | Notes field label and helper text; the prompt wording drives whether people use it |
-| PB-05 | 4 | Whether the form collects anything beyond an email |
-| ADMIN-01 … 08 | 0–1 | No screenshots. O2 still open in ADMIN-01, question sharpened after the Aug 14 call. D12's default stands |
+| MP-01 | 0 | **Complete** |
+| MP-02 | 0 | **Complete**. D9 strings approved as drafted |
+| MP-03 | 0 | **Complete** |
+| MP-04 | 0 | **Complete**. Statuses, sort, disabled controls, empty states closed Aug 16 |
+| MP-05 | 0 | **Complete**. Member dropdown option format closed Aug 16 |
+| MP-06 | 0 | **Complete** |
+| MP-07 | 0 | **Complete** |
+| MP-08 | 0 | **Complete**. Failure messages closed Aug 16 |
+| MP-09 | 0 | **Complete** |
+| MP-10 | 0 | **Complete** |
+| MP-11 | 0 | **Complete**. "Role added." closed Aug 16 |
+| MP-12 | 0 | **Complete** |
+| MP-13 | 0 | **Complete** |
+| PB-00 | 0 | **Complete** |
+| PB-01 | 0 | **Complete**. Empty states and no-image placeholder closed Aug 16 |
+| PB-02 | 0 | **Complete** |
+| PB-03 | 0 | **Complete** |
+| PB-04 | 0 | **Complete** |
+| PB-05 | 0 | **Complete**. Subscribe messages closed Aug 16 |
+| ADMIN-01 … 08 | 0 | ADMIN-05 Other-deactivate rule, ADMIN-06/07 empty-state distinction closed Aug 16. O2 still open in ADMIN-01. D12's default stands |
 
-**Total: roughly 145 items across eighteen surfaces.** All eighteen need a desktop and a mobile screenshot, which is 36 image files.
+**Total: zero inline `[CAPTURE]` markers across all 27 specs.** Capture walkthrough closed Aug 16. Four specs still carry non-capture §15 notes (MP-02 closed-item audit trail; ADMIN-03 O4; ADMIN-04 migration default; ADMIN-08 contacts-export dependency). **14 repo-wide** prose references to the `[CAPTURE]` convention remain in meta docs, not open build work.
 
 ### Rules for whoever does the walkthrough
 
@@ -122,7 +123,7 @@ All questions answered against the full export on 2026-08-14. Findings in `docs/
 | — | Deadline Type | 3 values. Source misspells it `Until Fufilled` on 78 rows |
 | — | Item Condition | 12 source variants collapsing to 3 |
 | — | Need Status | Active / Pending / Archived |
-| — | Primary Population Served | 24 distinct values. Three near-duplicate pairs open as O9 |
+| — | Primary Population Served | 24 distinct values in export. **Seeded as 10 + Other per D61.** Merges and `populations_other` rule in `field-map.md` section 7 |
 | TE5 | Donor rows with no quantity array | **10**, affecting 19 items with no recoverable quantity |
 | TE6 | Rows with both references | 0 |
 | TE7 | Rows with neither | 6 |
@@ -130,7 +131,7 @@ All questions answered against the full export on 2026-08-14. Findings in `docs/
 | TE9 | Names not splitting into two tokens | 43 raw, collapsing to 16 flagged after dedup |
 | TE10 | Org name in contact first_name | **Still open.** Only answerable from the contacts export |
 
-O9 is unblocked: the 24 values are listed in `data-audit.md` section 4. Default if nobody rules is to seed all 24 unmerged.
+TE10 is the only test-export item still open; it requires the contacts export (B2).
 
 ---
 

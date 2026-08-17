@@ -87,7 +87,8 @@ That is correct behavior: it means the email already went out and the operator i
 | Context | Text |
 |---|---|
 | Page heading | Email |
-| Empty state | No emails match these filters. |
+| Empty state, no sends yet | No emails have been sent yet. |
+| Empty state, filters applied | No emails match your filters. |
 | Failure banner | {count} emails failed in the last 7 days. |
 | Resend confirmation | Resend {template name} to {email}? |
 | Resend result, sent | Sent to {email}. |
@@ -99,7 +100,10 @@ Template names in the interface are readable, not keys. `org_member_approved` re
 
 ## 9. Empty states
 
-An empty log means dispatch has never run, which on a live system is itself the problem. `[CAPTURE]` whether to state that distinctly from a filtered-to-nothing result. Specified default: yes, they are different messages.
+Two distinct empty states:
+
+- **Nothing has ever been sent.** "No emails have been sent yet." On a live system after go-live, this means dispatch has never run and is itself the problem.
+- **Filters applied, zero results.** "No emails match your filters." Different message, different meaning.
 
 ## 10. Mobile differences
 
@@ -143,6 +147,4 @@ Staff admin or staff approver, per ADMIN-01 section 4.
 
 ## 15. Open captures
 
-| What is needed | Source |
-|---|---|
-| Whether an empty log reads differently from a filtered-to-nothing result. Default is yes | Captain |
+None.

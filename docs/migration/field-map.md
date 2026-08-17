@@ -121,9 +121,9 @@ Every split that sets `needs_review` writes the original string into `source_not
 
 **Records with no email.** `people.email` is `not null` and uniquely indexed on `lower(email)`. A source record with no email cannot be inserted as-is.
 
-**Specified handling:** synthesize `missing+{source}-{legacyId}@invalid.local`, set `needs_review = true`, write the source record reference in `source_note`, and write a plain-language reason in `review_note`. The `.invalid` TLD is reserved and can never route, so a synthesized address cannot accidentally receive mail. The reviewer merges the record into a real person or clears it.
+**Specified handling:** reject the record to `migration-exceptions.csv` and exclude the person from the load. Do not synthesize a placeholder email that could collide with a real person later. Resolution at ADMIN-04 is merge into a real person once staff have a correct email from the source.
 
-**Confirmed: zero records in the CMS export have no email.** All 127 donor rows, all 49 organization contacts, and all 143 request contacts carry one. The synthesized-address path stays live for the contacts export, which has not been inspected.
+**Confirmed: zero records in the CMS export have no email.** All 127 donor rows, all 49 organization contacts, and all 143 request contacts carry one. The exclusion path stays live for the contacts export, which has not been inspected.
 
 **Conflicting details on match.** Same email, different name or phone across sources. Keep the contacts-export values, since they come from structured fields. Where the contacts export has no row, keep the first-loaded value and write the conflict to `migration-exceptions.csv`. Do not overwrite silently and do not create a second row. **Names are never overwritten during migration.** The live rule that a matching email updates the name in place governs public flows, not this load. Here, a difference between sources is written to `migration-exceptions.csv` and the earlier-loaded value is kept. A phone number is filled in only when the existing row has none.
 
@@ -187,20 +187,20 @@ That third row is the point of the whole rebuild appearing as a migration proble
 
 ## 7. `populations`
 
-Seeded from `select distinct` on the source tags field across all 49 organizations. **Not from an invented taxonomy.**
+Seeded per **D61** (Christina confirmed Aug 16 2026), not from the 24 distinct historical export values and not from an invented taxonomy.
 
-Process: extract distinct values, trim, group case-insensitively, sort alphabetically, assign `sort_order` in that order, all `is_active = true`. Add an `Other` row if one is not already present.
+**Seed exactly eleven `populations` rows:** the ten canonical checkboxes from MP-03's signup form, plus **Other** as a permanent row (D19/D20). Full labels in `docs/specs/MP-03.md` section 5 and `DECISIONS.md` D61.
 
-**24 distinct values confirmed.** Full list with counts in `data-audit.md` section 4. `Other` already exists as a source value on two organizations, so no synthetic row is needed.
+**On migration, apply three near-duplicate merges** when linking source tags to seeded rows:
+- Foster Youth → Youth in Foster Care
+- Transitional Age Youth/Aged-Out Youth → Transitional Age Youth/Young Adults
+- Single Moms → Single Parents
 
-**Revised rule on single-occurrence values.** The original instruction demoted them to `populations_other`. Two values appear once — `Immigrants` and `Local Agencies/Nonprofits` — and both read as real categories, not free text. **Seed all 24 as-is.** No source value in this export reads as free text.
+**Eleven historical source values with no home in the ten** are not seeded as `populations` rows: Children or Families in Need, Low-income Communities, Hunger & Homelessness, Women, Pregnancy Support, Faith-Based Service, Social Workers, Birth Parents Reunifying with Kids, Immigrants, Local Agencies/Nonprofits, and source-tag Other when it appears as a historical value outside the canonical Other row. Preserve each per organization in `organizations.populations_other` as free text, comma-separated when an org selected more than one. Not silently dropped.
 
-**Three near-duplicate pairs are open (O9)**, and they drive the public browse filters on PB-01 and PB-03:
-- Youth in Foster Care (15) and Foster Youth (6)
-- Transitional Age Youth/Young Adults (9) and Transitional Age Youth/Aged-Out Youth (4)
-- Single Parents (11) and Single Moms (4)
+Process for the eleven seeded canonical values (excluding Other): assign `sort_order` in MP-03 display order, all `is_active = true`. Other row is permanent and cannot be deactivated (D19/D20).
 
-**Default if nobody answers: seed all 24 unmerged.** Merging later is an ADMIN-05 operation. Splitting later is not.
+**24 distinct values** in the export remain documented in `data-audit.md` section 4 for audit reference. D61 supersedes the prior "seed all 24" default.
 
 ---
 
@@ -521,14 +521,14 @@ Re-open this section only if the source is re-pulled.
 | City for 2 organizations | Program director | Open. Parsing recovers the other 9 |
 | Keep or repoint `bc00a9d0` | Program director | Open. One live Active request would disappear |
 | Test-data confirmation, 8 suspected rows | Program director | Open |
-| Population near-duplicate merges (O9) | Captain | Open. Default is seed all 24 |
+| Population checklist and migration mapping (O9) | — | **Closed as D61, Aug 16 2026.** Seed 10 + Other; merges and `populations_other` rule in section 7 |
 | `New or Like New` mapping sign-off | Captain | Open. Default is `new` |
 | Re-harvest one image, `c95239e9` | Captain | Open |
 | ~~Harvest 49 organization logos~~ | Captain | **Closed as D50. Phase two.** |
 | Move manifest and images into the repo | Captain | Open |
 | ~~Four at-risk field types~~ | — | **Closed 2026-08-14** |
 | ~~Distinct values, three coded fields~~ | — | **Closed. Section 14** |
-| ~~Distinct population values~~ | — | **Closed. 24 values** |
+| ~~Distinct population values~~ | — | **Closed as D61. Seed 10 + Other; see section 7** |
 | ~~Donor rows with no quantity array (TE5)~~ | — | **Closed. Ten, not zero** |
 | ~~Donor rows with both or neither reference~~ | — | **Closed. Zero and six** |
 | ~~Records with no email~~ | — | **Closed. Zero in the CMS** |

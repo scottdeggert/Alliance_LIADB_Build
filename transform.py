@@ -73,7 +73,7 @@ DEADLINE_TYPE = {
     "date specific": "date_specific",
 }
 
-# Twelve source variants, three schema values.
+# Twelve source variants, three schema values. Full mapping in data-audit.md section 4.
 ITEM_CONDITION = {
     "new": "new",
     "new or like new": "new",
@@ -83,6 +83,31 @@ ITEM_CONDITION = {
     "used - like new": "gently_used",
     "new/gently used": "any",
 }
+
+# D61: seed exactly these eleven rows — ten MP-03 checkboxes plus Other.
+CANONICAL_POPULATIONS = [
+    "At-Risk Kids/Teens",
+    "Youth in Foster Care",
+    "Transitional Age Youth/Young Adults",
+    "Unhoused Teens/Families",
+    "Foster/Adoptive Families",
+    "Refugee Families",
+    "Single Parents",
+    "Women Facing Unplanned Pregnancies",
+    "Families/Young Adults in Crisis",
+    "Youth with Disabilities/Health Issues",
+    "Other",
+]
+
+POPULATION_MERGE = {
+    "foster youth": "Youth in Foster Care",
+    "transitional age youth/aged-out youth": "Transitional Age Youth/Young Adults",
+    "single moms": "Single Parents",
+}
+
+# Historical values with no home in the ten; preserved in populations_other
+# (see D61 / field-map.md section 7). resolve_population sends any non-canonical
+# source tag to populations_other rather than dropping it.
 
 NEED_STATUS = {"active": "active", "pending": "pending", "archived": "archived"}
 ORG_STATUS = {"approved": "approved", "pending": "pending"}
@@ -368,15 +393,16 @@ class People:
         email = email.lower() if email else None
 
         if email is None:
-            # Zero rows in the CMS export need this. The path stays live for the
-            # contacts export, which has not been inspected.
-            email = f"missing+{source}-{legacy_id}@invalid.local".lower()
+            # TE8 confirms zero in the CMS export. If the contacts export ever produces
+            # one, exclude rather than synthesize — ADMIN-04 closed-with-default.
             self.report.add(
-                "people", legacy_id, str(raw_name or ""), "inferred", "email", "", email,
-                "The source record had no email address. A non-routable placeholder was "
-                "synthesized so the row could be inserted. The .invalid TLD can never route. "
-                "Merge or clear this person at ADMIN-04.",
+                "people", legacy_id, str(raw_name or ""), "excluded", "email", "", "",
+                "The source record had no email address. The person is excluded from the "
+                "load rather than importing a synthesized address. Resolve at ADMIN-04 "
+                "once a correct email is available from the source.",
             )
+            self.report.n("people excluded missing email")
+            return None
 
         self.hits[email] += 1
 
@@ -385,15 +411,9 @@ class People:
             return self.rows[email]["id"]
 
         first, last, needs_review, review_note, source_note = split_name(raw_name)
-        synthesized = email.endswith("@invalid.local")
 
         if source_note is not None:
             source_note = f'Source name as exported: "{source_note}" ({source} {legacy_id})'
-        elif synthesized:
-            source_note = f"Email synthesized during migration ({source} {legacy_id})"
-
-        if synthesized and review_note is None:
-            review_note = "This person arrived from the legacy system with no email address."
 
         self.rows[email] = {
             "id": new_id("person", email),
@@ -401,7 +421,7 @@ class People:
             "last_name": last,
             "email": email,
             "phone": txt(raw_phone),
-            "needs_review": needs_review or synthesized,
+            "needs_review": needs_review,
             "review_note": review_note,
             "source_note": source_note,
             "legacy_wix_contact_id": None,
@@ -410,7 +430,7 @@ class People:
         }
 
         self.report.n("people created")
-        if needs_review or synthesized:
+        if needs_review:
             self.report.n("people flagged needs_review")
         if needs_review:
             self.report.add(
@@ -509,21 +529,13 @@ def load_exclusions(path: Path):
 # ---------------------------------------------------------------------------
 
 
-def build_populations(orgs, report: Report):
+def build_populations(report: Report):
     """
-    Seeded from the distinct values present in the data, not an invented
-    taxonomy. 24 confirmed. Three near-duplicate pairs are left unmerged pending
-    O9: merging later is an ADMIN-05 operation, splitting later is not.
+    Seeded per D61: exactly eleven rows (ten MP-03 checkboxes plus Other).
+    Not from the 24 distinct historical export values.
     """
-    distinct = set()
-    for o in orgs:
-        for v in (jload(o.get("Primary Population Served")) or []):
-            t = txt(v)
-            if t:
-                distinct.add(t)
-
     rows, taken = [], set()
-    for i, name in enumerate(sorted(distinct, key=str.lower)):
+    for i, name in enumerate(CANONICAL_POPULATIONS):
         base = slugify(name)
         slug, n = base, 2
         while slug in taken:
@@ -533,15 +545,34 @@ def build_populations(orgs, report: Report):
                      "sort_order": i, "is_active": True})
         report.n("populations seeded")
 
+    by_name = {r["name"]: r["id"] for r in rows}
+    by_key = {key(r["name"]): r["id"] for r in rows}
     report.note(
-        f"Seeded {len(rows)} populations from the distinct values present in the export. "
-        "Three near-duplicate pairs (Youth in Foster Care / Foster Youth, the two Transitional "
-        "Age Youth values, Single Parents / Single Moms) were left unmerged pending O9."
+        f"Seeded {len(rows)} populations per D61 (ten MP-03 values plus Other). "
+        "Near-duplicate merges and populations_other preservation happen in build_organizations."
     )
-    return rows, {r["name"]: r["id"] for r in rows}
+    return rows, by_name, by_key
 
 
-def build_organizations(orgs, pop_ids, people: People, report: Report):
+def resolve_population(raw, pop_ids_by_key):
+    """
+    Returns (population_id or None, other_text or None).
+    Every source value links to a canonical row or is preserved in populations_other.
+    """
+    v = txt(raw)
+    if v is None:
+        return None, None
+
+    merged = POPULATION_MERGE.get(key(v), v)
+    pid = pop_ids_by_key.get(key(merged))
+    if pid is not None:
+        return pid, None
+
+    # Canonical Other matches above; anything else unlinked goes to populations_other.
+    return None, v
+
+
+def build_organizations(orgs, pop_ids_by_key, people: People, report: Report):
     org_rows, link_rows, email_rows = [], [], []
     by_legacy = {}
     taken = {PLATFORM_OWNER_SLUG}
@@ -611,6 +642,24 @@ def build_organizations(orgs, pop_ids, people: People, report: Report):
         org_id = new_id("organization", legacy)
         by_legacy[legacy] = org_id
 
+        values = jload(o.get("Primary Population Served")) or []
+        if not values:
+            report.add("organization_populations", legacy, name, "unresolved",
+                       "Primary Population Served", "", "",
+                       "The organization has no populations assigned. It will not appear "
+                       "under any public filter.")
+        linked = set()
+        other_parts = []
+        for raw in values:
+            pid, other_text = resolve_population(raw, pop_ids_by_key)
+            if pid is not None and pid not in linked:
+                linked.add(pid)
+                link_rows.append({"org_id": org_id, "population_id": pid})
+                report.n("organization_populations linked")
+            elif other_text is not None:
+                other_parts.append(other_text)
+                report.n("populations_other preserved")
+
         org_rows.append({
             "id": org_id, "legacy_wix_id": legacy, "kind": "member_org",
             "name": name, "slug": slug,
@@ -618,7 +667,7 @@ def build_organizations(orgs, pop_ids, people: People, report: Report):
             "mission": txt(o.get("Mission Statement")),
             "phone": txt(o.get("Org Phone Number")),
             "logo_url": None,          # media pass. Never a source-hosted URL (D38)
-            "populations_other": None,
+            "populations_other": ", ".join(other_parts) if other_parts else None,
             "address_line1": addr["address_line1"], "address_line2": addr["address_line2"],
             "city": addr["city"], "state": addr["state"],
             "postal_code": addr["postal_code"], "address_formatted": addr["address_formatted"],
@@ -627,20 +676,6 @@ def build_organizations(orgs, pop_ids, people: People, report: Report):
             "created_at": ts(o.get("Created Date")), "updated_at": updated,
         })
         report.n("organizations imported")
-
-        values = jload(o.get("Primary Population Served")) or []
-        if not values:
-            report.add("organization_populations", legacy, name, "unresolved",
-                       "Primary Population Served", "", "",
-                       "The organization has no populations assigned. It will not appear "
-                       "under any public filter.")
-        seen = set()
-        for raw in values:
-            v = txt(raw)
-            if v and v in pop_ids and pop_ids[v] not in seen:
-                seen.add(pop_ids[v])
-                link_rows.append({"org_id": org_id, "population_id": pop_ids[v]})
-                report.n("organization_populations linked")
 
         # D37. Replaces the source Approved Email Sent boolean. Without this the
         # dedup index has no record and staff can re-welcome a two-year member.
@@ -974,6 +1009,13 @@ def build_supporters(donors, ir_ids, item_ids, vr_ids, role_ids, people: People,
         person_id = people.resolve(
             d.get("Name"), d.get("Email"), d.get("Phone Number"), "donors", legacy
         )
+        if person_id is None:
+            report.add("donors", legacy, identifier, "excluded", "email",
+                       txt(d.get("Email")) or "", "",
+                       "The source row had no email address. The person is excluded and "
+                       "no pledge or signup was created.")
+            report.n("donor rows excluded missing email")
+            continue
 
         if ir_ref and vr_ref:
             # Zero rows here. Kept because a future export may not be so clean.
@@ -1317,6 +1359,10 @@ correct.** Run `docs/migration/validation.sql` after loading and commit its outp
 
 Full detail in `migration-exceptions.csv`.
 
+## Missing-email exclusions
+
+{"**ATTENTION:** " + str(report.counts.get("people excluded missing email", 0)) + " source record(s) had no email and were excluded from `people`. TE8 confirms zero in the CMS export; any occurrence here deserves a second look, not a silent pass-through. Detail in `migration-exceptions.csv`." if report.counts.get("people excluded missing email", 0) else "None. TE8 confirms zero no-email rows in the CMS export."}
+
 ## Inferences made once, for a class of rows
 
 {notes}
@@ -1358,9 +1404,9 @@ def main():
 
     print("\nTransforming\n")
 
-    populations, pop_ids = build_populations(src["organizations"], report)
+    populations, pop_ids, pop_ids_by_key = build_populations(report)
     orgs, org_pops, email_log, org_ids = build_organizations(
-        src["organizations"], pop_ids, people, report
+        src["organizations"], pop_ids_by_key, people, report
     )
     item_requests, ir_ids, redirects_a = build_item_requests(
         src["item_requests"], org_ids, excluded["item_request"], people, report
@@ -1420,6 +1466,12 @@ def main():
     raised = report.counts.get("items where claimed exceeded requested", 0)
     if raised:
         print(f"  {raised} items had quantity_requested raised to match a larger claimed total.")
+
+    missing_email = report.counts.get("people excluded missing email", 0)
+    if missing_email:
+        print(f"\n  *** ATTENTION: {missing_email} source record(s) had no email address. ***")
+        print("              TE8 says the CMS export has zero of these; any occurrence")
+        print("              deserves a second look. See migration-exceptions.csv.")
 
     print("\n  Next: psql \"$DATABASE_URL\" -f load.sql\n")
 

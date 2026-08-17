@@ -63,11 +63,11 @@ Eleven of twelve captured: the four staff notifications, `org_approved`, `org_re
 
 **`org_member_approved` is not yet captured.** See section 5 and `OPEN-ITEMS.md`.
 
-**Two small captures remain open**, both noted inline where they apply: the exact words `itemOrVolunteer` resolves to (`org_request_received`), and PB-04's on-screen confirmation copy should be checked against `donor_volunteer_confirmation`'s follow-up window once PB-04 is captured (D52).
+**Two small captures remain open**, both noted inline where they apply: the exact words `itemOrVolunteer` resolves to (`org_request_received`).
 
 Tiffany flagged on the Aug 14 call that one of the 12 triggered emails (new-user-login approval) may be obsolete now that magic link is decided (D40, confirmed). `org_member_approved` is written into this spec as a magic-link email already, so the working assumption is that it's being kept, just reworded for the new login method, not dropped. Confirm this reading when the body is captured rather than assuming it.
 
-**No formal mobile capture for these 12 (B3).** Wix's triggered-email editor has no mobile preview for any of the 12 templates; formal mobile capture is waived for these 12 specifically. This does not answer B6/O7, which covers the 18 bound UI surfaces and remains open.
+**No formal mobile capture for these 12 (B3).** Wix's triggered-email editor has no mobile preview for any of the 12 templates; formal mobile capture is waived for these 12 specifically. This does not answer B6/O7, which covers the 19 bound UI surfaces and remains open.
 
 ---
 
@@ -524,7 +524,7 @@ This email is the only channel a donor has to ask a question, change a quantity,
 >
 > If you have any questions or do not hear from the {organizationName} contact within 1 week, please email **Christina Moe**, our Love in Action Program Director, at christina@defendingthecause.org.
 
-**`followUpWindow` = "1-3 business days," added per D52.** Captured source said only "soon," with no number — the spec requires a stated window matching PB-04's on-screen text and `org_new_volunteer`'s commitment to the org (1-3 business days) and Christina's confirmed 48-hour operational target. Decided to state it explicitly rather than leave it vague. **When PB-04's on-screen confirmation copy is captured, it must use the same wording** — that capture is still open, tracked in `OPEN-ITEMS.md` section C, not here.
+**`followUpWindow` = "1-3 business days," added per D52.** Captured source said only "soon," with no number — the spec requires a stated window matching PB-04's on-screen text and `org_new_volunteer`'s commitment to the org (1-3 business days) and Christina's confirmed 48-hour operational target. Decided to state it explicitly rather than leave it vague. PB-04's instructional copy now uses the same wording, closing the conflict with this decision.
 
 ---
 
@@ -552,6 +552,5 @@ Then the negative tests:
 |---|---|
 | **`org_member_approved` body, verbatim** | The sending platform's triggered-email editor. Owner-level access. On arrival, confirm it's being kept (reworded for magic link) rather than dropped — see section 3 |
 | **The two words `itemOrVolunteer` renders as**, exact capitalization | Same source, `org_request_received` and `org_request_approved` subjects |
-| PB-04's on-screen confirmation copy, must match `donor_volunteer_confirmation`'s "1-3 business days" (D52) once captured | Capture walkthrough, `OPEN-ITEMS.md` section C |
 | Formal mobile capture of the 12 templates | **Waived** per B3. Does not answer B6/O7 |
 | From address, display name, and staff recipient addresses | Executive director |

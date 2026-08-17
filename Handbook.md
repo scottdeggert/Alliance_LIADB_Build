@@ -78,7 +78,7 @@ This is why the counter decisions went the way they did. An organization that ca
 
 ## 4. The keep-it-the-same constraint
 
-**Eighteen surfaces are bound.** They must look and behave the way the current system does. A member organization that logs in on August 25 should notice nothing except that things stopped breaking.
+**Nineteen surfaces are bound.** They must look and behave the way the current system does. A member organization that logs in on August 25 should notice nothing except that things stopped breaking.
 
 This binds the org member portal and both public flows. It does **not** bind the database, the staff admin, or anything a member never sees.
 
@@ -278,6 +278,7 @@ Each surface has a spec file and, where bound, two screenshots.
 
 | ID | Surface | Route | Spec |
 |---|---|---|---|
+| PB-00 | Public hub / landing | `/` | `docs/specs/PB-00.md` |
 | PB-01 | Browse item requests | `/items` | `docs/specs/PB-01.md` |
 | PB-02 | Item request detail and claim | `/items/:id` | `docs/specs/PB-02.md` |
 | PB-03 | Browse volunteer requests | `/volunteer` | `docs/specs/PB-03.md` |
@@ -317,7 +318,14 @@ Each surface has a spec file and, where bound, two screenshots.
 
 **Search** (PB-01, PB-03). Filters as the user types, debounced. PB-01 searches request title, organization name, and city. PB-03 adds event location. Debounce interval in the specs.
 
-**Supporter summary** (MP-13, and `org_new_item_donation`). Item pledges render as a quantity-prefixed string computed from `item_pledge_lines`, for example `3x Blankets, 2x Pillows`. **Computed in one shared place** so the screen and the email never disagree.
+**Supporter summary** (MP-13, and `org_new_item_donation`). Both contexts
+resolve from the same `item_pledge_lines` query, so they never disagree
+on *what* was pledged, but they render it differently, confirmed Aug 16
+2026: MP-13 lists each item on its own line within the table cell
+(`{quantity}x {item name}`, no separator), the email renders a table
+instead (D51). **Strike the `3x Blankets, 2x Pillows` example**, it
+described neither surface correctly. What's shared is the underlying
+data and the query that produces it, not a single string format.
 
 **Organization display fields.** Mission, website, logo, city, and populations render from the organization resolved through `org_id`. No other source. A field with no value is hidden.
 
@@ -355,7 +363,7 @@ Sends never block a user-facing response. Queue, respond, dispatch.
 
 **A failed send is invisible unless someone looks.** ADMIN-06 is the only place one surfaces, which is why the failure count appears in the admin navigation and why the approval queues state a send failure in their result messages rather than claiming success.
 
-**Body copy is not yet captured.** Subject lines are verbatim from the current system; the bodies live in the sending platform's editor and no one on this team has read them. Build against the stated requirements and drop in the captured copy when it arrives. On arrival, check whether the new-user-login approval template is obsolete under magic link (D40, B3); if it is, note the removal in `docs/email/TEMPLATES.md`, do not drop it silently. Formal mobile capture of the 12 is waived (B3); this does not answer B6/O7, which covers the 18 bound UI surfaces.
+**Body copy is not yet captured.** Subject lines are verbatim from the current system; the bodies live in the sending platform's editor and no one on this team has read them. Build against the stated requirements and drop in the captured copy when it arrives. On arrival, check whether the new-user-login approval template is obsolete under magic link (D40, B3); if it is, note the removal in `docs/email/TEMPLATES.md`, do not drop it silently. Formal mobile capture of the 12 is waived (B3); this does not answer B6/O7, which covers the 19 bound UI surfaces.
 
 ---
 
@@ -373,7 +381,7 @@ Field mappings in `docs/migration/field-map.md`. That directory is the only plac
 
 **Counters are recomputed** from imported lines after load, never carried from the export.
 
-**Populations** are seeded from the distinct values present in the data, not an invented taxonomy.
+**Populations** are seeded per D61: ten canonical MP-03 values plus Other, not from all 24 distinct export values.
 
 **Slugs** are assigned during migration and are permanent.
 
@@ -405,7 +413,7 @@ Everything depends on the data layer, so the data layer publishes its **contract
 
 **Lane A, member portal.** MP-01 through MP-13. Largest lane, and the one Christina walks. Build in journey order.
 
-**Lane B, public and email.** PB-01 through PB-05 plus the twelve templates. Demo material and highest traffic.
+**Lane B, public and email.** PB-00 through PB-05 plus the twelve templates. Demo material and highest traffic.
 
 **Lane C, admin and migration.** ADMIN-01 through ADMIN-08 plus the migration and validation. Build the shared admin shell first.
 
@@ -467,7 +475,7 @@ Settled rulings live in `DECISIONS.md` with their reasoning. What follows is gen
 **Needs The Alliance to answer** (O2, O4 in `DECISIONS.md` section 10; O1 closed as D45; O3 answered)
 
 - **O2:** You mentioned you can edit an org's details in the backend — is that something you do as part of approving new organizations, or is it separate ongoing maintenance you do any time? If it's separate, does phase one need to replicate it, or can that wait? Default until answered: D12 stands.
-- **O3:** **Answered.** Christina confirmed on the Aug 14 call: 48-hour target is being hit in practice; extends only when there's genuine back-and-forth with the org, which is expected. No change to the stated window. Literal copy capture for the confirmation screen is still open — see capture walkthrough, section C.
+- **O3:** **Answered.** Christina confirmed on the Aug 14 call: 48-hour target is being hit in practice; extends only when there's genuine back-and-forth with the org, which is expected. No change to the stated window. PB-04 instructional copy now matches D52 at 1-3 business days.
 - **O4:** After the sprint, how does a new Alliance staff member get access?
 
 **Needs The Alliance to send something** (O5–O8 in `DECISIONS.md` section 10)
@@ -477,12 +485,11 @@ Settled rulings live in `DECISIONS.md` with their reasoning. What follows is gen
 - **O7:** Confirmation that the screenshot folder includes mobile, or that it does not.
 - **O8:** DNS access for the `lia` subdomain.
 
-**Blocked on an artifact, not on a decision** (O9–O11 in `DECISIONS.md` section 10)
+**Blocked on an artifact, not on a decision** (O10–O11 in `DECISIONS.md` section 11; O9 closed as D61)
 
-- **O9:** Where the line falls between a real population and a free-text Other value. Unblocked by the test export distinct-value list.
 - **O10:** Capture walkthrough items in `OPEN-ITEMS.md` section C.
 - **O11:** Test-export questions in `OPEN-ITEMS.md` section TE.
 
 **Drafting items, not blocking**
 
-- MP-02 pending-approval message and organization switcher label (D9). Written fresh; captain reviews before ship.
+None.

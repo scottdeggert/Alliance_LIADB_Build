@@ -7,7 +7,7 @@
 | **Bound** | No. Build for clarity |
 | **Screenshots** | None |
 | **Depends on** | Migration (produces the rows), ADMIN-01 section 4 (shell) |
-| **Spec status** | Open captures listed in section 15 |
+| **Spec status** | Closed-with-default on no-email handling; see section 5 |
 
 ---
 
@@ -67,7 +67,7 @@ Region 2 listing attached records by name rather than by count is what makes the
 
 **Email is not editable.** It is the unique identity key, case-insensitive, and changing it is how one person silently becomes another. A record with a wrong email is resolved by merging it into the correct person, not by retyping the address.
 
-`[CAPTURE]` from the captain: records that arrived with no email at all. The column is `not null`, so the migration must have written something. Confirm what the import places there and whether those records can be merged into a real person or need a different resolution. This is on the pre-Monday list because the answer shapes both the migration and this surface.
+**Records with no email.** The current CMS export has zero rows without an email (`data-audit.md` TE8). If the contacts export ever produces one: reject the row into `migration-exceptions.csv` rather than synthesizing a fake address. Do not import a placeholder email that could collide with a real person later. Resolution at this surface is merge into a real person once staff have a correct email from the source.
 
 ## 6. Actions
 
@@ -85,7 +85,7 @@ Region 2 listing attached records by name rather than by count is what makes the
 **Merge**
 - Enabled when: a duplicate candidate is selected and it is not the same row as the survivor.
 - Confirms: **names both records and lists exactly what will move**, then requires the operator to confirm a second time. This is the only irreversible action in the system.
-- Does: the reassignment and delete in section 3, as one transaction.
+- Does: the reassignment and delete in section 3, as one transaction. Also writes an approval_events row with entity_type = 'person', from_status = 'duplicate', to_status = 'merged', carrying the deleted row's id and a summary in the note (D31). Folded into migrations/0001_initial_schema.sql already, no schema change needed here.
 - Direction: the operator chooses which record survives. Default the survivor to the record with the most attached rows, but let her override, since the better email or the better name may sit on the smaller record.
 - On success: the duplicate is gone, the survivor holds everything, and the result states what moved.
 - On failure: nothing written, stated error.
@@ -138,18 +138,14 @@ Staff admin only, not staff approver. Verified server-side per ADMIN-01 section 
 | Duplicate email on the survivor after merge | Cannot occur; the duplicate row is deleted, freeing its email. Confirm the delete and the reassignment are in the same transaction |
 | Save names with an empty field | Blocked |
 
-## 13. The audit trail
-
-Merge writes an `approval_events` row with `entity_type = 'person'`, `from_status = 'duplicate'`, and `to_status = 'merged'`, carrying the deleted row's id and a summary in the note (D31). This is folded into `migrations/0001_initial_schema.sql`.
-
-## 14. Out of scope
+## 13. Out of scope
 
 - Editing email addresses.
 - Deleting a person outside of a merge.
 - Creating people records.
 - Editing pledges, signups, or memberships. Merge reassigns them; it does not change their content.
 
-## 15. Acceptance
+## 14. Acceptance
 
 - Every `people` row with `needs_review = true` appears, with its review note and source note.
 - Attached records are listed by name, not summarized as counts.
@@ -162,8 +158,8 @@ Merge writes an `approval_events` row with `entity_type = 'person'`, `from_statu
 - A staff approver cannot reach this route.
 - The queue empties of migration-sourced rows, which is a definition-of-done item for cutover. Ongoing phone-match rows are expected during normal operation.
 
-## 16. Open captures
+## 15. Open captures
 
-| What is needed | Source |
-|---|---|
-| **What the migration writes for records that arrive with no email** | Migration lane, pre-Monday |
+| What is needed | Source | Status |
+|---|---|---|
+| **What the migration writes for records that arrive with no email** | Migration lane | **Closed-with-default, Aug 16 2026.** TE8 confirms zero in current export. Default: reject to `migration-exceptions.csv`, do not synthesize. See section 5 |

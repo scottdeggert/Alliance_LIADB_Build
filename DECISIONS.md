@@ -56,9 +56,9 @@ Deleting an item that has pledge lines against it destroys a donor's record of w
 
 Two members of the same organization editing the same request simultaneously is rare at this scale, and optimistic locking costs a day of build time and a conflict UI nobody has specced. Revisit if it ever bites.
 
-**D9. Both MP-02 strings are written fresh and reviewed by the captain.**
+**D9. Both MP-02 strings are written fresh and approved by the captain.**
 
-The zero-membership pending message and the organization switcher label describe situations the current system cannot produce. Nothing to copy. Drafts go in the specs; I sign them off.
+The zero-membership pending message and the organization switcher label describe situations the current system cannot produce. Nothing to copy. Drafts in MP-02 section 8; approved as drafted Aug 16 2026.
 
 **D10. Public write endpoints are rate limited by IP with a per-endpoint ceiling.** (MP-03, PB-02, PB-04, PB-05)
 
@@ -174,7 +174,7 @@ Leaving it null solves this without a new column. A request only becomes digest-
 
 Does not apply to `organizations.approved_at`, which still infers from `Updated Date`. That column isn't feeding a time-windowed filter. Revisit only if it (or a derived "member since") is ever displayed publicly or used to sort or filter a directory.
 
-**No schema change required.** `docs/migration/field-map.md` is explicit: `approved_at` (and `submitted_at`, same reasoning) is not carried over from source and is left null on the one-time historical import, not derived from any Wix field. None of the 26 specs owns the digest send job — PB-05 is the subscribe form and ADMIN-08 is subscriber admin, not the send logic. Per the schema's own section 8 comment, the send job is phase two. Record the eligibility rule (`approved_at` is both non-null and within the lookback window) on that spec once it exists. Do not treat this as blocking the current sprint. The rule is parked on the digest-send item in `Handbook.md` section 17 until then.
+**No schema change required.** `docs/migration/field-map.md` is explicit: `approved_at` (and `submitted_at`, same reasoning) is not carried over from source and is left null on the one-time historical import, not derived from any Wix field. None of the 27 specs owns the digest send job — PB-05 is the subscribe form and ADMIN-08 is subscriber admin, not the send logic. Per the schema's own section 8 comment, the send job is phase two. Record the eligibility rule (`approved_at` is both non-null and within the lookback window) on that spec once it exists. Do not treat this as blocking the current sprint. The rule is parked on the digest-send item in `Handbook.md` section 17 until then.
 
 **Extended by D48.** The null default is scoped to the one historical Wix migration batch. It is not a general import default, and it is not how live approvals work.
 
@@ -205,9 +205,15 @@ If the send job isn't built out for Thursday's demo, the digest gets shown manua
 
 Captured source renders `Item | Number Donated` as a table and role lists under their own heading, matching what's live today, not the "3x Blankets, 2x Pillows" inline format MP-13 uses on screen. Both read the same computed data (`item_pledge_lines` / `volunteer_signup_roles`); the "email and screen never disagree" requirement is read as applying to the values, not the string format. Presentation differs by context.
 
+**Correction, Aug 16 2026:** this decision's own contrast was written
+against `Handbook.md`'s `3x Blankets, 2x Pillows` example for MP-13,
+which turned out not to describe MP-13 either. MP-13 renders one item
+per line, not that comma string. D51 itself is unaffected, email still
+uses tables, this just corrects what it was being contrasted against.
+
 **D52. `donor_volunteer_confirmation` states an explicit follow-up window: "within 1-3 business days."**
 
-Captured source said only "soon," no number. The organization is committed to responding in 1-3 business days (`org_new_volunteer`), and Christina confirmed a 48-hour target is being hit in practice (O3). The volunteer's own confirmation email previously stated no window at all, which the spec flags as worth fixing if a mismatch is real. Decided to state it explicitly rather than leave it vague, matching what the organization is already held to. **PB-04's on-screen confirmation copy must use the same wording when captured** — tracked in `OPEN-ITEMS.md` section C, not resolved by this decision alone.
+Captured source said only "soon," no number. The organization is committed to responding in 1-3 business days (`org_new_volunteer`), and Christina confirmed a 48-hour target is being hit in practice (O3). Decided to state it explicitly rather than leave it vague. PB-04's on-screen instructional copy now uses the same 1-3 business days window, closing the conflict with this decision rather than documenting it.
 
 **D53. `org_new_volunteer` sends to both staff addresses in addition to the request's contact person.**
 
@@ -343,6 +349,10 @@ O1 closed as D45. O3 is answered and kept here for the record. Remaining unanswe
 | O3 | Volunteers are told the organization will follow up within a stated window. Is that number still right, and do organizations hit it? | Christina | **Answered.** Christina confirmed on the Aug 14 call: 48-hour target is being hit in practice; extends only when there's genuine back-and-forth with the org, which is expected. No change to the stated window. Literal copy capture for the confirmation screen is still open — see capture walkthrough, section C |
 | O4 | After the sprint, how does a new Alliance staff member get access? | Tiffany, Christina | This week the answer is a database write, which is not durable. Needs a real answer before handover, not before Monday |
 
+### Needs confirmation before Friday demo
+
+None. O12 and O13 closed Aug 16 2026 (PB-04 follow-up window harmonized to D52; PB-05 digest-only scope confirmed with phase-two path in `LIA_Phase_Two_Backlog.md` item 9).
+
 ### Needs The Alliance to send something
 
 | # | Ask | Who |
@@ -356,9 +366,10 @@ O1 closed as D45. O3 is answered and kept here for the record. Remaining unanswe
 
 | # | Question | Unblocked by |
 |---|---|---|
-| O9 | Where the line falls between a real population and a free-text value | The distinct-value list from the test export. Then a ten-minute review with Christina |
 | O10 | Everything in `OPEN-ITEMS.md` section C | The capture walkthrough. Not questions, just work |
 | O11 | Everything in `OPEN-ITEMS.md` section TE | The test export |
+
+O9 closed as D61 (Christina, Aug 16 2026). Do not reopen.
 
 ---
 
@@ -407,6 +418,24 @@ Inferred from MP-04-desktop.png, Aug 16 2026, not from a direct capture
 of the surface itself. If a screenshot of "Edit My Organization" surfaces
 before build and shows otherwise, this ruling reverses without ceremony,
 it was never load-bearing on anything except this one surface's shape.
+
+---
+
+## 14. Layout and populations
+
+**D60. Mobile layout is a single-column stack of the same elements, same order, same labels as desktop, unless a spec explicitly captures a specific deviation.**
+
+Confirmed against MP-01 and MP-04's mobile captures, both stack cleanly with nothing restructured or dropped. Build mobile using standard responsive conventions, full-width fields and buttons, one-column grids, collapsed nav, rather than waiting on a mobile screenshot for every surface. This closes "mobile differences" as an open item across every remaining spec that doesn't already have mobile-specific evidence contradicting it.
+
+**D61. Population checklist is unified across the app, using the exact ten values on MP-03's signup form, confirmed directly by Christina.** (closes O9)
+
+Superseded reasoning: this was previously going to seed from the 24 distinct historical values in `data-audit.md` section 4. That's wrong; those 24 are years of drift across a checklist that's changed shape multiple times, not a taxonomy anyone signed off on. Christina confirmed Aug 16 that the current MP-03 screen is the correct list to standardize on. Use it as written: At-Risk Kids/Teens, Youth in Foster Care, Transitional Age Youth/Young Adults, Unhoused Teens/Families, Foster/Adoptive Families, Refugee Families, Single Parents, Women Facing Unplanned Pregnancies, Families/Young Adults in Crisis, Youth with Disabilities/Health Issues, plus **Other**, which the schema already requires as a permanent seeded row (D19/D20).
+
+**Near-duplicate merges on migration:** Foster Youth → Youth in Foster Care; Transitional Age Youth/Aged-Out Youth → Transitional Age Youth/Young Adults; Single Moms → Single Parents.
+
+**Migration:** the eleven remaining historical values with no home in the ten (Children or Families in Need, Low-income Communities, Hunger & Homelessness, Women, Pregnancy Support, Faith-Based Service, Social Workers, Birth Parents Reunifying with Kids, Immigrants, Local Agencies/Nonprofits, Other) are not seeded as `populations` rows and are not silently dropped either. Preserve them per organization in `populations_other` as free text, comma-separated if an org selected more than one. Real data, real orgs, kept, just not promoted to checkboxes nobody confirmed.
+
+MP-05's edit checklist changes from its current fifteen values to the same ten plus Other, matching MP-03 exactly, per Christina's own framing that this is "the list we need to standardize across the app," not a list specific to signup. Both forms read from the same `populations` table. MP-03 signup keeps the 1-2 selection cap; MP-05 edit has no stated maximum.
 
 ---
 

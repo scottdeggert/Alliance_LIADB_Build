@@ -13,7 +13,7 @@
 
 ## 1. Purpose
 
-Where staff manage the list of populations that organizations select from when describing who they serve. The list is seeded from the values present in the migrated data rather than from an invented taxonomy, and this surface is how it evolves afterward without a developer.
+Where staff manage the list of populations that organizations select from when describing who they serve. The list is seeded per D61 (ten canonical values plus Other), and this surface is how it evolves afterward without a developer.
 
 Its second job matters more than its first: surfacing what organizations typed into the free-text Other field, so a value that keeps recurring becomes a real option instead of accumulating as unsearchable text.
 
@@ -72,7 +72,7 @@ Region 3 is not a secondary feature. It is the reason this surface exists rather
 - Enabled when: the population is active.
 - Confirms: names the population and states how many organizations hold it.
 - Does: sets `is_active = false`. **Existing `organization_populations` rows are untouched.** Deactivating removes the option from new selections; it does not strip the population from organizations that already serve it.
-- The Other row is seeded and should not be deactivated. `[CAPTURE]` whether to block deactivating it outright. Specified default: block, with a stated reason, since removing it leaves organizations no way to describe anything unlisted.
+- The Other row is seeded permanent infrastructure (schema comment), not an ordinary staff-managed value. **Deactivate is blocked** for Other, with the stated reason in section 8. Removing it would leave organizations no way to describe anything unlisted.
 
 **Promote an Other value**
 - Enabled when: at least one organization holds the value.

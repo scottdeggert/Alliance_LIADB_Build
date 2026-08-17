@@ -79,7 +79,7 @@ A meaningful share of the current system's behavior is configured in the visual 
 
 **The specs are the checklist.** Every `docs/specs/{ID}.md` ends with an open-captures table listing exactly what that surface needs. Work through them file by file rather than taking freeform notes.
 
-For each of the eighteen bound surfaces:
+For each of the nineteen bound surfaces:
 
 1. **Desktop screenshot**, full page.
 2. **Mobile screenshot**, separately.

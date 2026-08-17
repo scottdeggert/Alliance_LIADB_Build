@@ -29,7 +29,7 @@ The Alliance coordinates a network of roughly 105 member organizations serving v
 
 | Area | Status |
 |---|---|
-| Build contract | Complete — `Handbook.md`, 26 surface specs, `DECISIONS.md` |
+| Build contract | Complete — `Handbook.md`, 27 surface specs, `DECISIONS.md` |
 | Database schema | `migrations/0001_initial_schema.sql` — 17 tables, complete initial schema |
 | Design tokens | `docs/Design.md` — colors, type, card tokens from the live site |
 | Brand assets | `assets/` — Alliance logos, page headers, member-dashboard graphics. **Member-organization logos are not in the LIA database.** They exist on the public Alliance site at https://www.defendingthecause.org/non-profits (62 organizations). `organizations.logo_url` stays in the schema and is populated in phase two when the per-organization shareable page is built. That page is not being retired, so there is no urgency. |
@@ -59,11 +59,11 @@ All database access goes through one data-access layer. Migrations are numbered 
 
 ## Surfaces
 
-Twenty-six surfaces across three areas. Each has a spec in `docs/specs/`. Bound surfaces (18) also require desktop and mobile screenshots before they are built.
+Twenty-seven surfaces across three areas. Each has a spec in `docs/specs/`. Bound surfaces (19) also require desktop and mobile screenshots before they are built.
 
 **Member portal (MP-01–MP-13)** — login, signup, dashboard, requests, supporters. Thirteen bound surfaces; Christina's acceptance walkthrough covers the full member journey.
 
-**Public browse (PB-01–PB-05)** — item and volunteer browse/detail, digest subscribe. Five bound surfaces; highest public traffic.
+**Public browse (PB-00–PB-05)** — hub, item and volunteer browse/detail, digest subscribe. Six bound surfaces; highest public traffic.
 
 **Staff admin (ADMIN-01–ADMIN-08)** — approval queues, people review, populations, email log, audit, subscribers. Eight surfaces, not bound; specs are the design, no screenshots.
 
@@ -103,7 +103,7 @@ From `Handbook.md` section 15. Lane 0 (migrations, data-access contracts, auth, 
 |---|---|
 | **0** | Migrations, data-access signatures, route table, auth wiring, seed script |
 | **A** | Member portal MP-01–MP-13 |
-| **B** | Public PB-01–PB-05 + twelve email templates |
+| **B** | Public PB-00–PB-05 + twelve email templates |
 | **C** | Admin ADMIN-01–ADMIN-08 + migration and validation |
 
 ---
@@ -201,7 +201,7 @@ Alliance_LIADB_Build/
 │       ├── _TEMPLATE.md
 │       ├── ADMIN-01.md … ADMIN-08.md    Staff admin (8 surfaces)
 │       ├── MP-01.md … MP-13.md          Member portal (13 surfaces)
-│       └── PB-01.md … PB-05.md          Public browse (5 surfaces)
+│       └── PB-00.md … PB-05.md          Public browse (6 surfaces)
 └── migrations/
     └── 0001_initial_schema.sql          Complete initial schema (17 tables)
 ```

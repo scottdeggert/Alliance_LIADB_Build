@@ -61,8 +61,7 @@ select e.tbl, e.n as expected, a.n as actual, a.n - e.n as delta,
 \echo ''
 \echo '--- 1b. PEOPLE (report only, no expected value) ---'
 select count(*) as people_total,
-       count(*) filter (where needs_review) as needs_review,
-       count(*) filter (where email like '%@invalid.local') as synthesized_email
+       count(*) filter (where needs_review) as needs_review
   from people;
 
 \echo ''
@@ -236,17 +235,11 @@ union all
 select 'volunteer_request', id, archived_reason from volunteer_requests
  where legacy_wix_id is not null and archived_reason is not null;
 
-\echo '5.4 orphan people: no pledge, no signup, no membership, no contact role'
--- A synthesized-email row in this state is an import artifact with no purpose.
-select p.id, p.email, p.needs_review
+\echo '5.4 people with no email should never load (ADMIN-04)'
+-- Missing-email records are excluded at transform time; this should always return zero rows.
+select p.id, p.email
   from people p
- where not exists (select 1 from item_pledges       x where x.person_id = p.id)
-   and not exists (select 1 from volunteer_signups  x where x.person_id = p.id)
-   and not exists (select 1 from users              u join org_memberships m on m.user_id = u.id where u.person_id = p.id)
-   and not exists (select 1 from organizations      o where o.primary_contact_person_id = p.id)
-   and not exists (select 1 from item_requests      r where r.contact_person_id = p.id)
-   and not exists (select 1 from volunteer_requests r where r.contact_person_id = p.id)
-   and p.email like '%@invalid.local';
+ where p.email is null or trim(p.email) = '';
 
 \echo '5.5 duplicate legacy_wix_id within a table'
 select 'organizations' as tbl, legacy_wix_id from organizations
@@ -294,7 +287,7 @@ select o.id, o.name from organizations o
  where o.kind = 'member_org'
    and not exists (select 1 from organization_populations op where op.org_id = o.id);
 
-\echo '6.5 populations count (expect 24 unless merges were applied)'
+\echo '6.5 populations count (expect 11: ten canonical plus Other per D61)'
 select count(*) as populations, count(*) filter (where is_active) as active from populations;
 
 

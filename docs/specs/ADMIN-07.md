@@ -74,14 +74,18 @@ None. Read-only. No CSV export (D25).
 | Context | Text |
 |---|---|
 | Page heading | Activity |
-| Empty state | No activity matches these filters. |
+| Empty state, no activity yet | No activity recorded yet. |
+| Empty state, filters applied | No activity matches your filters. |
 | Automated actor | Automated |
 | Missing entity marker | No longer present |
 | Transition labels | A shared readable mapping. For example: Submitted for approval, Approved and published, Returned to draft, Archived, Archived automatically after expiry, Reinstated, Organization approved, Organization disabled, Member approved, Member removed |
 
 ## 9. Empty states
 
-An empty trail on a live system means transitions are not writing events, which is a defect in whatever surface performed them, not in this one. `[CAPTURE]` whether to state that distinctly from a filtered-to-nothing result. Specified default: yes.
+Two distinct empty states:
+
+- **Nothing has ever been recorded.** "No activity recorded yet." On a live system after go-live, an empty trail means transitions are not writing events, which is a defect in whatever surface performed them, not in this one.
+- **Filters applied, zero results.** "No activity matches your filters." Different message, different meaning.
 
 ## 10. Mobile differences
 
@@ -119,6 +123,4 @@ Staff admin or staff approver, per ADMIN-01 section 4.
 
 ## 15. Open captures
 
-| What is needed | Source |
-|---|---|
-| Whether an empty trail reads differently from a filtered-to-nothing result. Default is yes | Captain |
+None.

@@ -216,23 +216,17 @@ requests have a null status; both are abandoned drafts and are excluded
 | Refugee Families | 6 | | Immigrants | 1 |
 | Youth with Disabilities/Health Issues | 6 | | Local Agencies/Nonprofits | 1 |
 
-`Other` already exists as a source value, so section 7's "add one if not
-present" is a no-op.
+`Other` already exists as a source value on two organizations. Under **D61**, the canonical checklist seeds **Other** as a permanent row (D19/D20); historical source tags that do not map to the ten canonical values are preserved in `populations_other` per organization — see section 7 / `field-map.md` section 7.
 
-**Three near-duplicate pairs need a captain or program call (O9):**
+**Near-duplicate merges, closed as D61 (Christina, Aug 16 2026):**
 
-- Youth in Foster Care (15) and Foster Youth (6)
-- Transitional Age Youth/Young Adults (9) and Transitional Age Youth/Aged-Out Youth (4)
-- Single Parents (11) and Single Moms (4)
+- Foster Youth (6) → **Youth in Foster Care**
+- Transitional Age Youth/Aged-Out Youth (4) → **Transitional Age Youth/Young Adults**
+- Single Moms (4) → **Single Parents**
 
-Merging is a data decision with a UI consequence: these drive the public browse
-filters on PB-01 and PB-03. **Default if nobody answers: seed all 24 as-is.**
-Merging later is an ADMIN-05 operation, splitting later is not.
+**Eleven historical values with no home in the ten** are not seeded as `populations` rows: Children or Families in Need, Low-income Communities, Hunger & Homelessness, Women, Pregnancy Support, Faith-Based Service, Social Workers, Birth Parents Reunifying with Kids, Immigrants, Local Agencies/Nonprofits, Other (when present as a non-canonical source tag). Written to `organizations.populations_other` per org, comma-separated if multiple. Not silently dropped.
 
-Two values appear exactly once (Immigrants, Local Agencies/Nonprofits). Under
-section 7's stated rule they would fall to `populations_other`. Recommend
-overriding that rule and seeding them: both read as real categories, not free
-text, and demoting them buries two organizations' actual focus.
+**Seed eleven `populations` rows total:** the ten canonical MP-03 checkbox values plus Other. O9 closed; do not default to seeding all 24.
 
 ---
 
@@ -443,7 +437,7 @@ collision; ordinary slug generation is enough.
 | — | City for 11 organizations | Christina | 15 minutes. Blocking validation |
 | — | Keep or drop `bc00a9d0` | Christina | One live Active request |
 | — | Confirm test-data rows | Christina | Section 6 |
-| O9 | Population merges | Captain / Christina | Default: seed all 24 |
+| ~~O9~~ | ~~Population merges~~ | ~~Captain / Christina~~ | **Closed as D61, Aug 16 2026.** Seed 10 + Other; see `field-map.md` section 7 |
 | — | `New or Like New` → `new` | Captain | 119 rows |
 | — | Re-harvest one image | Captain | `c95239e9` |
 | B4 | Staff roster | Executive director | Unchanged |
